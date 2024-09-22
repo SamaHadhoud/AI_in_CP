@@ -10,7 +10,7 @@ from rich.logging import RichHandler
 import subprocess
 import tempfile
 import os
-tempfile.tempdir = "//home//alaaelsetohy//starter-kits//submit_first_solution//dataset//2023//practice"
+tempfile.tempdir = "./dataset//2023//practice"
 import weave
 
 def load_jsonl(file: Path) -> List[dict]:
@@ -65,42 +65,68 @@ def check_solution(expected: str, actual: str) -> dict:
             matches += 1  # +1 for the whole line match
         else:
             offending_cases.append((expected_line, actual_line))
-    return {"matches": matches == len(expected_lines), "total": len(expected_lines), "offending_cases": offending_cases}
+    return {"matches": matches == len(expected_lines), "total": len(expected_lines), "len_offending_cases": len(offending_cases), "len_passed_cases": len(expected_lines) - len(offending_cases),"offending_cases": offending_cases}
 
 class TimeoutException(Exception):
     pass
 
-def run_with_timeout(code: str, input: Optional[str], timeout: int):
-    vars = {}
+# def run_with_timeout(code: str, input: Optional[str], timeout: int):
+#     vars = {}
+#     try:
+#         exec(code, vars)
+#     except Exception as e:
+#         logging.error(f"The generated code is not valid: {code}")
+#         raise e
+
+#     fn = vars.get("solve", lambda x: x)
+#     return fn(input)
+
+import multiprocessing
+import time
+import logging
+
+class TimeoutException(Exception):
+    pass
+
+def worker(code, input, result_queue):
     try:
+        vars = {}
         exec(code, vars)
+        fn = vars.get("solve", lambda x: x)
+        result = fn(input)
+        result_queue.put(result)
     except Exception as e:
-        logging.error(f"The generated code is not valid: {code}")
-        raise e
+        result_queue.put(e)
 
-    fn = vars.get("solve", lambda x: x)
-    return fn(input)
+def run_with_timeout(code: str, input: Optional[str], timeout: int):
+    result_queue = multiprocessing.Queue()
+    process = multiprocessing.Process(target=worker, args=(code, input, result_queue))
+    process.start()
 
-async def arun(code: Optional[str] = None, input: Optional[str] = None, timeout: int = 10):
-    logging.info(f"Running solution asynchronously with {timeout}s timeout...")
-    loop = asyncio.get_running_loop()
+    process.join(timeout)
+    if process.is_alive():
+        process.terminate()
+        process.join()
+        raise TimeoutException(f"Function call timed out after {timeout} seconds")
+
+    if not result_queue.empty():
+        result = result_queue.get()
+        if isinstance(result, Exception):
+            raise result
+        return result
+    else:
+        raise Exception("No result produced")
+
+def run(code: Optional[str] = None, input: Optional[str] = None, timeout: int = 60):
+    logging.info("Running solution synchronously...")
     t0 = time.perf_counter()
     try:
-        with concurrent.futures.ThreadPoolExecutor() as executor:
-            future = loop.run_in_executor(
-                executor, 
-                run_with_timeout, 
-                code, 
-                input, 
-                timeout
-            )
-            logging.info("Waiting for execution to complete or timeout...")
-            result = await asyncio.wait_for(future, timeout=timeout)
+        result = run_with_timeout(code, input, timeout)
         logging.info("Execution completed successfully.")
         return result
-    except asyncio.TimeoutError:
+    except TimeoutException as e:
         logging.error(f"Function call timed out after {timeout} seconds")
-        raise TimeoutException(f"Function call timed out after {timeout} seconds")
+        raise e
     except Exception as e:
         logging.error(f"Error executing code: {e}")
         raise e
@@ -108,13 +134,16 @@ async def arun(code: Optional[str] = None, input: Optional[str] = None, timeout:
         t1 = time.perf_counter()
         logging.info(f"Code solution runtime: {t1 - t0:.2f} seconds")
 
-def run(code: Optional[str] = None, input: Optional[str] = None, timeout: int = 1000):
-    logging.info("Running solution synchronously...")
-    return asyncio.run(arun(code, input, timeout))
+# We can keep the async version if needed, but it might not be necessary anymore
+async def arun(code: Optional[str] = None, input: Optional[str] = None, timeout: int = 60):
+    logging.info(f"Running solution asynchronously with {timeout}s timeout...")
+    loop = asyncio.get_running_loop()
+    return await loop.run_in_executor(None, run, code, input, timeout)
 
 
-def run_cpp(code: str, input: str, timeout: int = 1000) -> str:
-    tmpdir ="//home//alaaelsetohy//starter-kits//submit_first_solution//dataset//2023//practice"
+
+def run_cpp(code: str, input: str, timeout: int = 10) -> str:
+    tmpdir =".//dataset//2023//practice"
     cpp_file = os.path.join(tmpdir, "solution.cpp")
     exe_file = os.path.join(tmpdir, "solution")
     
