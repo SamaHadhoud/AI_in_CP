@@ -64,7 +64,7 @@ def call_model(messages, **kwargs):
     return outputs[0].outputs[0].text.strip()
 
 @weave.op
-def generate_code(
+async def generate_code(
     problem: Problem, 
     system_prompt: str, 
     prompt_template: str, 
@@ -142,28 +142,95 @@ def generate_code(
     # solution = maybe_remove_backticks(solution)
     return extracted_code
 
-system_prompt = " You are an expert problem solver. Your task is creating the code to solve the problem at hand in python."
+# system_prompt="""
+# You are a world-class competitive programmer tasked with solving a programming problem. 
+# You will be provided with a problem statement, and you need to create a Python3 solution for it. 
+# Your task it to develop a winning solution to the problem in Python3 programming language.
+# You will do this in a step-by-step manner.
 
+# Step 1: Extract the core question and the problem-solving information from the problem statement.
+# Step 2: Describe the algorithm used to solve the problem.
+# Step 3: Write a short tutorial on the algorithm and how it works.
+# Step 4: Generate a step by step plan to solve the problem.
+# Step 5: Generate the pseudocode to solve the problem.
+# Step 6: Write the final solution in Python3 programming language to solve the problem.
+
+# Competition Guidelines:
+#     a. Use the function signature: 'def solve(input_data: str) -> str:'
+#     b. Handle input and output using standard input/output (stdin/stdout)
+#     c. Optimize for execution time where possible, without compromising correctness.
+#     c. Use 'from tqdm import tqdm' for progress bars in loops processing large datasets.
+#     d. Do not add extra print statements otherwise it will fail the test cases.
+#     e. Make sure your code passes all potential test cases, including edge cases
+#     f. Follow the input/output format specified in the problem statement and the sample test cases.
+
+# """
+# system_prompt = """
+# You are an expert problem solver with a focus on creating accurate and efficient Python code. Your primary task is to develop a solution that precisely addresses the given problem. Your code should prioritize correctness and adherence to the problem specifications, while also optimizing for execution time where possible. Always handle input and output as strings, and ensure your solution covers all aspects of the problem description.
+
+# Key Requirements:
+# 1. Use the function signature: 'def solve(input_data: str) -> str:'
+# 2. Implement an algorithm that correctly solves all aspects of the problem.
+# 3. Ensure your solution handles all cases mentioned in the problem description.
+# 4. ptimize for execution time where possible, without compromising correctness.
+# 5. Use 'from tqdm import tqdm' for progress bars in loops processing large datasets.
+# 6. Include any necessary imports at the beginning of your code.
+
+# Important Notes:
+# - Carefully read and address all parts of the problem description.
+# - Your solution must handle edge cases and any specific conditions mentioned in the problem.
+# - Prioritize correctness over optimization; ensure your code works correctly for all possible inputs.
+# """
+
+system_prompt="""
+You are an expert Python developer specializing in algorithmic problem-solving. Your task is to create highly efficient and accurate Python code that precisely addresses the given problem. Your solution should prioritize correctness, optimal performance, and adherence to all problem specifications.
+
+Key Requirements:
+1. Use the function signature: 'def solve(input_data: str) -> str:'
+2. Implement an algorithm that correctly solves all aspects of the problem, including edge cases.
+3. Optimize for both time and space complexity where possible, without compromising correctness.
+4. Use 'from tqdm import tqdm' for progress bars in loops processing large datasets.
+5. Include all necessary imports at the beginning of your code.
+6. Handle input and output as strings, parsing and formatting as required.
+7. Provide clear, concise comments explaining complex logic or optimizations.
+
+Best Practices:
+- Carefully analyze the problem description to identify all requirements and constraints.
+- Consider various algorithmic approaches and choose the most efficient one for the given problem.
+- Implement robust error handling and input validation where appropriate.
+- Use appropriate data structures to optimize time and space complexity.
+- Write clean, readable code following PEP 8 style guidelines.
+- If applicable, consider using Python's built-in functions and libraries for optimization.
+
+Remember: Your primary goal is to create a solution that is both correct and efficient, capable of handling all possible inputs within the problem's constraints.
+"""
 prompt_template = """
-Problem: 
+Problem Description:
 {problem_description}
 
-Input: 
+Sample Input:
 {sample_input}
 
-Output: 
+Sample Output:
 {sample_output}
 
-Create a python program that returns the correct output for the given input.
+Your task is to create a Python function named 'solve' that accurately and efficiently solves the problem described above. The function should take a string input similar to the sample input and return a string output similar to the sample output.
 
-The file should have a single `solve` method that has the following signature:
-input_data: [str]: The same Input provided above
-output [str]: The same Output provided above
+Requirements:
+1. Implement the 'solve' function with the signature: def solve(input_data: str) -> str:
+2. Parse the input string correctly and handle all aspects of the problem.
+3. Optimize the algorithm for both time and space complexity.
+4. Use 'tqdm' for progress bars in loops processing large datasets, if applicable.
+5. Include necessary imports at the beginning of your code.
+6. Provide brief comments explaining any complex logic or optimizations.
+
+The file should have a single `solve` method with the following signature:
 
 ```python
 from tqdm import tqdm
-def solve(input_data: str) -> str: 
-```
+
+def solve(input_data: str) -> str:
+    # Your implementation here
 """
 
 extract_prompt = """
@@ -189,7 +256,7 @@ def solve_problem(problem: Problem, use_images=False, timeout=60) -> dict:
 
 @dataclass
 class Args(simple_parsing.Serializable):
-    problem_name: str = "road_to_nutella" # name of the problem to solve
+    problem_name: str = "cheeseburger_corollary_ch1" # name of the problem to solve
     folder_path: Path = Path("./dataset/2023/practice/") # path to the folder containing the problems
     weave_log: bool = True # set to True to log to weave
     use_images: bool = False # set to True to use images in the prompt
