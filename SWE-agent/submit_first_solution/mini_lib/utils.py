@@ -10,7 +10,7 @@ from rich.logging import RichHandler
 import subprocess
 import tempfile
 import os
-tempfile.tempdir = "//home//alaaelsetohy//starter-kits//submit_first_solution//dataset//2023//practice"
+tempfile.tempdir = ".//dataset//2023//practice"
 import weave
 
 def load_jsonl(file: Path) -> List[dict]:
@@ -114,7 +114,7 @@ def run(code: Optional[str] = None, input: Optional[str] = None, timeout: int = 
 
 
 def run_cpp(code: str, input: str, timeout: int = 1000) -> str:
-    tmpdir ="//home//alaaelsetohy//starter-kits//submit_first_solution//dataset//2023//practice"
+    tmpdir =".//dataset//2023//practice"
     cpp_file = os.path.join(tmpdir, "solution.cpp")
     exe_file = os.path.join(tmpdir, "solution")
     

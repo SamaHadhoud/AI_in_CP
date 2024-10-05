@@ -13,6 +13,25 @@ import torch
 
 
 import os
+
+
+import asyncio
+import concurrent.futures
+import json
+import logging
+from pathlib import Path
+import time
+from typing import Optional, List
+from rich.logging import RichHandler
+import subprocess
+import tempfile
+import os
+import weave
+from vllm import LLM, SamplingParams
+from mini_lib.problem import Problem
+from mini_lib.utils import maybe_remove_backticks, check_solution, setup_logger, run, TimeoutException
+from transformers import AutoTokenizer
+
 os.environ["TOKENIZERS_PARALLELISM"] = "false"
 model_name = "deepseek-ai/deepseek-coder-7b-instruct-v1.5"
 # Load the tokenizer
@@ -64,7 +83,7 @@ def call_model(messages, **kwargs):
     return outputs[0].outputs[0].text.strip()
 
 @weave.op
-async def generate_code(
+def generate_code(
     problem: Problem, 
     system_prompt: str, 
     prompt_template: str, 
@@ -72,14 +91,14 @@ async def generate_code(
     use_images: bool = False) -> str:
     logging.info(f"Generating code solution for: {problem.name}")
 
-    # Count tokens for problem components
-    problem_description_tokens = count_tokens(problem.problem_description)
-    sample_input_tokens = count_tokens(problem.sample_input)
-    sample_output_tokens = count_tokens(problem.sample_output)
-    total_problem_tokens = problem_description_tokens + sample_input_tokens + sample_output_tokens
+    # # Count tokens for problem components
+    # problem_description_tokens = count_tokens(problem.problem_description)
+    # sample_input_tokens = count_tokens(problem.sample_input)
+    # sample_output_tokens = count_tokens(problem.sample_output)
+    # total_problem_tokens = problem_description_tokens + sample_input_tokens + sample_output_tokens
 
-    # Count tokens for prompts
-    system_prompt_tokens = count_tokens(system_prompt)
+    # # Count tokens for prompts
+    # system_prompt_tokens = count_tokens(system_prompt)
     
     # Format the prompt template with problem details
     formatted_prompt = prompt_template.format(
@@ -87,20 +106,20 @@ async def generate_code(
         sample_input=problem.sample_input,
         sample_output=problem.sample_output,
     )
-    prompt_template_tokens = count_tokens(formatted_prompt)
+    # prompt_template_tokens = count_tokens(formatted_prompt)
     
-    extract_prompt_tokens = count_tokens(extract_prompt)
+    # extract_prompt_tokens = count_tokens(extract_prompt)
 
-    # Print token counts
-    print(f"Token counts:")
-    print(f"  Problem description: {problem_description_tokens}")
-    print(f"  Sample input: {sample_input_tokens}")
-    print(f"  Sample output: {sample_output_tokens}")
-    print(f"  Total problem: {total_problem_tokens}")
-    print(f"  System prompt: {system_prompt_tokens}")
-    print(f"  Prompt template: {prompt_template_tokens}")
-    print(f"  Extract prompt: {extract_prompt_tokens}")
-    print(f"  Total prompts: {system_prompt_tokens + prompt_template_tokens + extract_prompt_tokens}")
+    # # Print token counts
+    # print(f"Token counts:")
+    # print(f"  Problem description: {problem_description_tokens}")
+    # print(f"  Sample input: {sample_input_tokens}")
+    # print(f"  Sample output: {sample_output_tokens}")
+    # print(f"  Total problem: {total_problem_tokens}")
+    # print(f"  System prompt: {system_prompt_tokens}")
+    # print(f"  Prompt template: {prompt_template_tokens}")
+    # print(f"  Extract prompt: {extract_prompt_tokens}")
+    # print(f"  Total prompts: {system_prompt_tokens + prompt_template_tokens + extract_prompt_tokens}")
 
     messages = [
         {"role": "system", "content": system_prompt},
@@ -239,60 +258,276 @@ Extract the code from the response. reply with the code only. Omit any additiona
 - The code should be a valid python program.
 - Get the `solve` function with the corresponding imports"""
 
+
+@dataclass
+class SolutionAttempt:
+    code: str
+    status: str
+    test_cases: dict = None
+    error: str = None
+    execution_time: float = None
+
 @weave.op
-def solve_problem(problem: Problem, use_images=False, timeout=60) -> dict:
+def solve_problem(problem: Problem, use_images=False, timeout=60) -> SolutionAttempt:
     code = generate_code(
         problem, 
         system_prompt=system_prompt, 
         prompt_template=prompt_template, 
         extract_prompt=extract_prompt, 
         use_images=use_images)
-    print(code)
+    # print(code)
 
     input_data, output = problem.sample_input, problem.sample_output
-    generated_output = run(code, input=input_data, timeout=timeout) 
     
-    return {"code": code, "generated_output": generated_output, "expected_output": output}
+    try:
+        start_time = time.time()
+        generated_output = run(code, input=input_data, timeout=timeout)
+        execution_time = time.time() - start_time
+        test_cases = check_solution(output, generated_output)
+        return SolutionAttempt(code=code, status="success", test_cases=test_cases, execution_time=execution_time)
+    except TimeoutException:
+        return SolutionAttempt(code=code, status="timeout", error= "Execution time limit exceeded")
+    except Exception as e:
+        return SolutionAttempt(code=code, status="runtime_error", error=str(e))
+
+def rank_solutions(solutions: List[SolutionAttempt]) -> List[SolutionAttempt]:
+    def solution_score(solution: SolutionAttempt) -> tuple:
+        if solution.status == "success":
+            return (2, solution.test_cases['len_passed_cases'], -solution.execution_time)
+        elif solution.status == "timeout":
+            return (1, 0, 0)
+        else:  # runtime_error
+            return (0, 0, 0)
+    
+    return sorted(solutions, key=solution_score, reverse=True)
+
+
+
+@weave.op
+async def reflection(problem: Problem, solution_result: SolutionAttempt) -> str:
+    error_str = f"Error: {solution_result.error}" if solution_result.error else ""
+    test_cases_str = json.dumps(solution_result.test_cases, indent=2) if solution_result.test_cases else ""
+    Offending = ""
+    if(test_cases_str):
+        Offending = f"Code Current output: {solution_result.test_cases['actual']}\nOffending Test Cases:\n"
+        for case in solution_result.test_cases["offending_cases"]:
+            Offending+=f"line {case[0]}, should be {case[1]} instead of {case[2]}\n"
+    reflection_prompt = f"""
+You are a world-class competitive programmer with a keen eye for detail and problem solving. 
+Your expertise is in algorithms and data structures. 
+You have incorrectly answered the following programming problem. 
+Your task is to reflect on the problem, your solution, and the correct answer.
+You will then use this information help you answer the same question in the future. 
+First, explain why you answered the question incorrectly.
+Secondly, create a list of detailed instructions to help you correctly solve this problem in the future.
+Be concise in your response; however, capture all of the essential information.
+
+Problem:
+{problem.problem_description}
+
+Sample Input:
+{problem.sample_input}
+
+Sample Output:
+{problem.sample_output}
+
+<incorrect_solution>
+{solution_result.code}
+</incorrect_solution>
+<test_report>
+{"Status: " + solution_result.status if solution_result.status != "success" else ""}
+{error_str}
+{Offending if Offending else ""}
+</test_report>
+
+**Format Instructions: Your response must follow the following xml format** -
+
+<root>
+<reflection>
+[Reflect on the problem, your solution, and the correct answer.]
+</reflection>
+<instructions>
+[Create a list of detailed instructions to help you correctly solve this problem in the future.]
+</instructions>
+</root>
+---
+Let's think step by step to reflect on the problem:
+"""
+
+    messages = [
+        {"role": "system", "content": reflection_prompt}
+        # ,
+        # {"role": "user", "content": reflection_prompt},
+    ]
+
+    reflection_response = call_model(messages=messages)
+    return reflection_response
+
+@weave.op
+async def improve_solution(problem: Problem, previous_solution: SolutionAttempt, reflection: str) -> str:
+    error_str = f"Error: {previous_solution.error}" if previous_solution.error else ""
+    test_cases_str = json.dumps(previous_solution.test_cases, indent=2) if previous_solution.test_cases else ""
+    Offending = ""
+    if(test_cases_str):
+
+        Offending = f"Code Current output: {previous_solution.test_cases['actual']}\nOffending Test Cases:\n"
+        for case in previous_solution.test_cases["offending_cases"]:
+            Offending+=f"line {case[0]}, should be {case[1]} instead of {case[2]}\n"
+    improve_prompt = f"""
+You have incorrectly answered the following programming problem. Based on the following reflection and improvements, please provide an improved solution to the problem:
+
+Problem:
+{problem.problem_description}
+
+Sample Input:
+{problem.sample_input}
+
+Sample Output:
+{problem.sample_output}
+
+<incorrect_solution>
+{previous_solution.code}
+</incorrect_solution>
+<test_report>
+{"Status: " + previous_solution.status if previous_solution.status != "success" else ""}
+{error_str}
+{Offending if Offending else ""}
+</test_report>
+
+Reflection and improvements:
+{reflection}
+
+Please provide an improved solution that addresses the issues identified in the reflection.
+"""
+
+    messages = [
+        {"role": "system", "content": system_prompt},
+        {"role": "user", "content": improve_prompt},
+    ]
+
+    improved_solution = call_model(messages=messages)
+
+    logging.info("Extracting the solution from the previous generation...")
+
+    code_match = re.search(r'```python\n(.*?)```', improved_solution, re.DOTALL)
+    if code_match:
+        extracted_code = code_match.group(1).strip()
+    else:
+        extracted_code = ""
+        logging.error("No Python code found in the solution")
+    print("Xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx")
+    print(extracted_code)
+    return extracted_code
 
 @dataclass
 class Args(simple_parsing.Serializable):
-    problem_name: str = "cheeseburger_corollary_ch1" # name of the problem to solve
+    problem_name: str = "road_to_nutella" # name of the problem to solve
     folder_path: Path = Path("./dataset/2023/practice/") # path to the folder containing the problems
     weave_log: bool = True # set to True to log to weave
     use_images: bool = False # set to True to use images in the prompt
     save_output: bool = True # set to True to save the output to a file
     debug: bool = False # set to True to see the debug logs
     timeout: int = 60 # timeout for the code execution
+    max_attempts: int = 10
 
-if __name__=="__main__":
-    args = simple_parsing.parse(Args)
-
+async def main(args: Args):
     setup_logger(args.debug)
-
+    timeout = args.timeout
     problem = Problem.from_name(args.problem_name, args.folder_path)
 
     if args.weave_log: 
         weave.init("hack-starter")
     
     logging.info("> Solving on sample input...")
-    try:
-        problem_solution = solve_problem(problem, use_images=args.use_images, timeout=args.timeout)
-    except TimeoutException:
-        print("The solution took too long to execute and was terminated.")
-        problem_solution = None  # or some default value
-    matches = check_solution(problem_solution["expected_output"], problem_solution["generated_output"])
-    logging.info("Sample Matches:")
-    logging.info(matches)
+    
+    solution_attempts = []
+    solution_result = solve_problem(problem, use_images=args.use_images, timeout=args.timeout)
+    solution_attempts.append(solution_result)
+
+    logging.info(f"Attempt base - Status: {solution_result.status}")
+    if solution_result.status == 'success':
+        logging.info(f"Test cases: {solution_result.test_cases}")
+    
+    if not (solution_result.status == 'success' and solution_result.test_cases['matches']):
+        for attempt in range(args.max_attempts):
+
+            logging.info("Reflecting and improving...")
+            reflection_result = await reflection(problem, solution_result)
+            improved_solution = await improve_solution(problem, solution_result, reflection_result)
+            solution_result.code = improved_solution
+            code = improved_solution
+
+            input_data, output = problem.sample_input, problem.sample_output
+        
+            try:
+                start_time = time.time()
+                generated_output = run(code, input=input_data, timeout=timeout)
+                execution_time = time.time() - start_time
+                test_cases = check_solution(output, generated_output)
+                solution_result =  SolutionAttempt(code=code, status="success", test_cases=test_cases, execution_time=execution_time)
+            except TimeoutException:
+                solution_result =  SolutionAttempt(code=code, status="timeout")
+            except Exception as e:
+                solution_result =  SolutionAttempt(code=code, status="runtime_error", error=str(e))
+            solution_attempts.append(solution_result)
+            logging.info(f"Attempt {attempt + 1} - Status: {solution_result.status}")
+            if solution_result.status == 'success':
+                logging.info(f"Test cases: {solution_result.test_cases}")
+            
+            if solution_result.status == 'success' and solution_result.test_cases['matches']:
+                break
+
+    for i, solution in enumerate(solution_attempts):
+        print(f"trial {i}")
+        print(solution.code)
+        print(solution.status)
+
+        if(solution.test_cases):
+            print(solution.test_cases)
+
+    ranked_solutions = rank_solutions(solution_attempts)
+
+    best_solution = ranked_solutions[0]
+    
+    logging.info(f"Best solution status: {best_solution.status}")
+    if best_solution.status == 'success':
+        logging.info(f"Best solution test cases: {best_solution.test_cases}")
+    print(best_solution.code)
+
 
     logging.info("> Solving on full input...")
     expected_output = problem.get_output()
-    generated_output = run(problem_solution["code"], input=problem.get_input(), timeout=args.timeout) 
-    matches = check_solution(expected_output, generated_output)
-    logging.info("Final Matches:")
-    logging.info(matches)
+    try:
+        generated_output = run(best_solution.code, input=problem.get_input(), timeout=args.timeout)
+        matches = check_solution(expected_output, generated_output)
+        logging.info("Final Matches:")
+        logging.info(matches)
 
-    if args.save_output:
-        logging.info("> Saving output to files")
-        problem.save_output(problem_solution["generated_output"])
-        problem.save_code(problem_solution["code"])
+        if args.save_output:
+            logging.info("> Saving output to files")
+            problem.save_output(generated_output)
+            problem.save_code(best_solution.code)
+    except TimeoutException:
+        logging.error("The solution took too long to execute on the full input and was terminated.")
+        logging.error(f"Try with {2*args.timeout}")
+        try:
+            generated_output = run(best_solution.code, input=problem.get_input(), timeout=2*args.timeout)
+            matches = check_solution(expected_output, generated_output)
+            logging.info("Final Matches:")
+            logging.info(matches)
 
+            if args.save_output:
+                logging.info("> Saving output to files")
+                problem.save_output(generated_output)
+                problem.save_code(best_solution.code)
+        except TimeoutException:
+            logging.error("The solution took too long to execute on the full input and was terminated.")
+            
+
+    except Exception as e:
+        logging.error(f"An error occurred while running the solution on the full input: {str(e)}")
+
+if __name__ == "__main__":
+    
+    args = simple_parsing.parse(Args)
+    asyncio.run(main(args))
