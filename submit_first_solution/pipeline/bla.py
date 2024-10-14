@@ -30,7 +30,7 @@ from mini_lib.problem import Problem
 from mini_lib.utils import maybe_remove_backticks, check_solution, setup_logger, run, TimeoutException
 
 # Import the solve_problem function and other necessary components
-from one_shot import solve_problem, system_prompt, prompt_template, extract_prompt
+# from one_shot import solve_problem, system_prompt, prompt_template, extract_prompt
 import torch
 torch.cuda.empty_cache()
 
@@ -249,100 +249,102 @@ def rerank_docs(query: str, retrieved_docs: List[dict], top_k: int = 3) -> List[
     docs_df = docs_df.drop_duplicates(subset=["code"], keep="first")
     return docs_df.head(top_k).to_dict(orient="records")
 
-if __name__ == "__main__":
-    parser = ArgumentParser()
-    parser.add_argument("-c", "--cache-directory", type=Path, default="data/cache")
-    parser.add_argument("--reload-cache", action="store_true")
-    parser.add_argument("--problem-name", type=str, default="dim_sum_delivery")
-    parser.add_argument("--folder-path", type=Path, default=Path("./dataset/2023/practice/"))
-    parser.add_argument("--use-images", action="store_true")
-    parser.add_argument("--timeout", type=int, default=60)
-    parser.add_argument("--save-output", action="store_true", default=True)
+# if __name__ == "__main__":
+#     parser = ArgumentParser()
+#     parser.add_argument("-c", "--cache-directory", type=Path, default="data/cache")
+#     parser.add_argument("--reload-cache", action="store_true")
+#     parser.add_argument("--problem-name", type=str, default="dim_sum_delivery")
+#     parser.add_argument("--folder-path", type=Path, default=Path("./dataset/2023/practice/"))
+#     parser.add_argument("--use-images", action="store_true")
+#     parser.add_argument("--timeout", type=int, default=60)
+#     parser.add_argument("--save-output", action="store_true", default=True)
 
-    args = parser.parse_args()
+#     args = parser.parse_args()
 
-    if not args.cache_directory.exists():
-        args.cache_directory.mkdir(parents=True)
+#     if not args.cache_directory.exists():
+#         args.cache_directory.mkdir(parents=True)
 
-    retriever = Retriever()
+#     retriever = Retriever()
 
-    # Load the problem
-    problem = Problem.from_name(args.problem_name, args.folder_path)
+#     # Load the problem
+#     problem = Problem.from_name(args.problem_name, args.folder_path)
 
-    # Generate code using zero-shot approach
-    try:
-        problem_solution = solve_problem(problem, use_images=args.use_images, timeout=args.timeout)
-        generated_code = problem_solution["code"]
-    except TimeoutException:
-        print("The solution took too long to execute and was terminated.")
-        generated_code = "# Failed to generate code due to timeout"
+#     # Generate code using zero-shot approach
+#     try:
+#         problem_solution = solve_problem(problem, use_images=args.use_images, timeout=args.timeout)
+#         generated_code = problem_solution["code"]
+#     except TimeoutException:
+#         print("The solution took too long to execute and was terminated.")
+#         generated_code = "# Failed to generate code due to timeout"
 
-    # Use the generated code as a query for retrieval
-    try:
-        # Retrieve documents
-        print("\nAttempting to retrieve documents...")
-        retrieved_docs = retriever.retrieve(generated_code, k=5)
+#     # Use the generated code as a query for retrieval
+#     try:
+#         # Retrieve documents
+#         print("\nAttempting to retrieve documents...")
+#         retrieved_docs = retriever.retrieve(generated_code, k=5)
 
-        if not retrieved_docs:
-            print("No documents retrieved. Check the query processing.")
-        else:
-            print("\nRetrieved Documents:")
-            for i, doc in enumerate(retrieved_docs, 1):
-                print(f"\nDocument {i}:")
-                print(f"Code:\n{doc['code'][:200]}...")  # Print first 200 characters of the code
-                print(f"Description: {doc['description'][:100]}...")  # Print first 100 characters of the description
+#         if not retrieved_docs:
+#             print("No documents retrieved. Check the query processing.")
+#         else:
+#             print("\nRetrieved Documents:")
+#             for i, doc in enumerate(retrieved_docs, 1):
+#                 print(f"\nDocument {i}:")
+#                 print(f"Code:\n{doc['code'][:200]}...")  # Print first 200 characters of the code
+#                 print(f"Description: {doc['description'][:100]}...")  # Print first 100 characters of the description
 
-        # Rerank documents
-        # Rerank documents
-        reranked_docs = rerank_docs(generated_code, retrieved_docs, top_k=3)
+#         # Rerank documents
+#         # Rerank documents
+#         reranked_docs = rerank_docs(generated_code, retrieved_docs, top_k=3)
 
-        if not reranked_docs:
-            print("No documents after reranking. Check the reranking process.")
-        else:
-            print("\nReranked Documents:")
-            for i, doc in enumerate(reranked_docs, 1):
-                # Remove 'normalized_code' from each document
-                doc.pop('normalized_code', None)
+#         if not reranked_docs:
+#             print("No documents after reranking. Check the reranking process.")
+#         else:
+#             print("\nReranked Documents:")
+#             for i, doc in enumerate(reranked_docs, 1):
+#                 # Remove 'normalized_code' from each document
+#                 doc.pop('normalized_code', None)
                 
-                print(f"\nDocument {i}:")
-                print(f"Description:\n{doc['description']}")
-                print(f"\nCode:\n{doc['code']}")
-                print(f"Similarity: {doc['similarity']:.4f}")
+#                 print(f"\nDocument {i}:")
+#                 print(f"Description:\n{doc['description']}")
+#                 print(f"\nCode:\n{doc['code']}")
+#                 print(f"Similarity: {doc['similarity']:.4f}")
 
-        try:
-            # Prepare examples for the prompt
-            examples = """Examples:
-        """
-            for i, doc in enumerate(reranked_docs, 1):
-                examples += f"""Example {i}:
-        Description:
-        {doc['description']}
+#         try:
+#             # Prepare examples for the prompt
+#             examples = """Examples:
+#         """
+#             for i, doc in enumerate(reranked_docs, 1):
+#                 examples += f"""Example {i}:
+#         Description:
+#         {doc['description']}
 
-        Code:
-        {doc['code']}
+#         Code:
+#         {doc['code']}
 
-        """
-            problem_solution = solve_problem(problem, use_images=args.use_images, timeout=args.timeout, examples=examples)
-            generated_code = problem_solution["code"]
-        except TimeoutException:
-            print("The solution took too long to execute and was terminated.")
-            generated_code = "# Failed to generate code due to timeout"
+#         """
+#             problem_solution = solve_problem(problem, use_images=args.use_images, timeout=args.timeout, examples=examples)
+#             generated_code = problem_solution["code"]
+#         except TimeoutException:
+#             print("The solution took too long to execute and was terminated.")
+#             generated_code = "# Failed to generate code due to timeout"
 
-        matches = check_solution(problem_solution["expected_output"], problem_solution["generated_output"])
-        logging.info("Sample Matches:")
-        logging.info(matches)
+#         matches = check_solution(problem_solution["expected_output"], problem_solution["generated_output"])
+#         logging.info("Sample Matches:")
+#         logging.info(matches)
 
-        logging.info("> Solving on full input...")
-        expected_output = problem.get_output()
-        generated_output = run(problem_solution["code"], input=problem.get_input(), timeout=args.timeout) 
-        matches = check_solution(expected_output, generated_output)
-        logging.info("Final Matches:")
-        logging.info(matches)
+#         logging.info("> Solving on full input...")
+#         expected_output = problem.get_output()
+#         generated_output = run(problem_solution["code"], input=problem.get_input(), timeout=args.timeout) 
+#         matches = check_solution(expected_output, generated_output)
+#         logging.info("Final Matches:")
+#         logging.info(matches)
 
-        if args.save_output:
-            logging.info("> Saving output to files")
-            problem.save_output(problem_solution["generated_output"])
-            problem.save_code(problem_solution["code"])
+#         if args.save_output:
+#             logging.info("> Saving output to files")
+#             problem.save_output(problem_solution["generated_output"])
+#             problem.save_code(problem_solution["code"])
+
+            ###########
 
         # print("\nReranking documents...")
         # reranked_docs = rerank_docs(generated_code, retrieved_docs, top_k=3)
@@ -389,10 +391,10 @@ if __name__ == "__main__":
 
         
 
-    except Exception as e:
-        print(f"An error occurred: {str(e)}")
-        import traceback
-        traceback.print_exc()
+    # except Exception as e:
+    #     print(f"An error occurred: {str(e)}")
+    #     import traceback
+    #     traceback.print_exc()
 
 # if __name__ == "__main__":
 #     parser = ArgumentParser()

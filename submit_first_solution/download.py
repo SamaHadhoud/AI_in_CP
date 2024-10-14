@@ -9,7 +9,7 @@ class ScriptArgs:
     python download.py --year 2023 --dataset_folder dataset
     """
     year: int = 2023 # year to download
-    dataset_folder: Path = Path("dataset") # folder to save the dataset
+    dataset_folder: Path = Path("pipeline/dataset") # folder to save the dataset
 
 if __name__ == "__main__":
     args = simple_parsing.parse(ScriptArgs)
