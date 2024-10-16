@@ -55,8 +55,9 @@ class VLLMSingleton:
         model_name = "Qwen/Qwen2.5-Coder-7B-Instruct"
         self.llm = LLM(model=model_name, 
                        trust_remote_code=True, 
+                       enforce_eager=True,
                        dtype="float16", 
-                       gpu_memory_utilization=0.98,
+                       gpu_memory_utilization=0.9,
                        max_model_len=8000)
         
         self.default_sampling_params = SamplingParams(temperature=0.1, top_p=0.95, max_tokens=8000)

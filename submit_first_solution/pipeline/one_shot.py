@@ -14,7 +14,7 @@ import os
 os.environ["TOKENIZERS_PARALLELISM"] = "false"
 from models import get_vllm, get_embedding_model
 import time
-from bla import *
+from retrieval_logic import *
 import asyncio
 vllm = get_vllm()
 
@@ -72,12 +72,15 @@ def generate_code(
     problem: Problem, 
     system_prompt: str, 
     prompt_template: str, 
+    prompt_template_without_examples:str,
     extract_prompt: str,
     use_images: bool = False,
     max_attempts: int = 3, 
     examples:str="") -> str:
     logging.info(f"Generating code solution for: {problem.name}")
 
+    
+        
     for attempt in range(max_attempts):
         logging.info(f"Generating code solution for: {problem.name} (Attempt {attempt + 1})")
 
@@ -90,13 +93,17 @@ def generate_code(
         # Count tokens for prompts
         system_prompt_tokens = count_tokens(system_prompt)
         
-        # Format the prompt template with problem details
-        formatted_prompt = prompt_template.format(
-            problem_description=problem.problem_description,
-            sample_input=problem.sample_input,
-            sample_output=problem.sample_output,
-            examples=examples
-        )
+
+        if not examples:
+            formatted_prompt = prompt_template_without_examples.format(
+                    problem=problem.as_xml
+                )
+            prompt_template = prompt_template_without_examples
+        else:
+            formatted_prompt = prompt_template.format(
+                problem=problem.as_xml,
+                examples=examples
+            )
         prompt_template_tokens = count_tokens(formatted_prompt)
         print(formatted_prompt)
         
@@ -116,12 +123,7 @@ def generate_code(
         messages = [
             {"role": "system", "content": system_prompt},
             {"role": "user", "content": [
-                {"type": "text", "text": prompt_template.format(
-                    problem_description=problem.problem_description,
-                    sample_input=problem.sample_input,
-                    sample_output=problem.sample_output,
-                    examples=examples
-                )}
+                {"type": "text", "text": formatted_prompt}
             ] + ([{"type": "image_url", "image_url": {"url": img}} for img in problem.images] if use_images else [])}
         ]
 
@@ -184,22 +186,35 @@ Best Practices:
 Remember: Your primary goal is to create a solution that is both correct and efficient, capable of handling all possible inputs within the problem's constraints.
 """
 
+prompt_template_without_examples= """
+{problem}
+
+Create a Python program that solves the current problem. Your solution must include a function named 'solve' with the following signature:
+
+def solve(input_data: str) -> str:
+    # Your code here
+
+The 'solve' function should take the input as a string and return the output as a string.
+
+Please provide only the Python code, enclosed in triple backticks, like this:
+
+```python
+# Your imports here
+from tqdm import tqdm
+
+def solve(input_data: str) -> str:
+    # Your code here
+"""
+
 prompt_template = """
-Problem: 
-{problem_description}
+{problem}
 
-Input: 
-{sample_input}
-
-Output: 
-{sample_output}
-
-
-You have previously solved similar problems like the following:
-Examples:
+You have previously solved the following problems in this competition:
+<examples>
 {examples}
+</examples>
 
-I want you to get inspired from them and create a Python program that solves the current problem. Your solution must include a function named 'solve' with the following signature:
+I want you to get inspired from them. and create a Python program that solves the current problem. Your solution must include a function named 'solve' with the following signature:
 
 def solve(input_data: str) -> str:
     # Your code here
@@ -243,6 +258,7 @@ def solve_problem(problem: Problem, use_images=False, timeout=60, examples="") -
         problem, 
         system_prompt=system_prompt, 
         prompt_template=prompt_template, 
+        prompt_template_without_examples = prompt_template_without_examples,
         extract_prompt=extract_prompt, 
         use_images=use_images,
         examples=examples)

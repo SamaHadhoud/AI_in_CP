@@ -17,16 +17,19 @@ import os
 os.environ["TOKENIZERS_PARALLELISM"] = "false"
 from models import get_vllm, get_embedding_model
 import time
-from bla import *
+from retrieval_logic import *
 
 import asyncio
 
 @dataclass
 class Args(simple_parsing.Serializable):
     problem_names: List[str] = field(default_factory=lambda:  [
-        "dim_sum_delivery"])
+        "cheeseburger_corollary_ch1", 
+        "cheeseburger_corollary_ch2", "dim_sum_delivery", "two_apples_a_day", "road_to_nutella"])
         # "here_comes_santa_claus", "sum_41_ch1",
-        # "sum_41_ch2", "back_in_black_ch1", "back_in_black_ch2", "today_is_gonna_be_a_great_day", "bohemian_rap-sody"] ) # list of problems to solve
+        # "sum_41_ch2", 
+        
+        # "back_in_black_ch1", "back_in_black_ch2", "today_is_gonna_be_a_great_day", "bohemian_rap-sody"] ) # list of problems to solve
     folder_path: Path = Path("./dataset/2023/practice/")
     weave_log: bool = True
     use_images: bool = False
@@ -54,7 +57,7 @@ async def solve_single_problem(args: Args, problem_name: str, retriever):
         print("\nRetrieved Documents:")
         for i, doc in enumerate(retrieved_docs, 1):
             print(f"\nDocument {i}:")
-            print(f"Code:\n{doc['code'][:200]}...")  # Print first 200 characters of the code
+            print(f"Code:\n{doc['cleaned_code'][:200]}...")  # Print first 200 characters of the code
             print(f"Description: {doc['description'][:100]}...")  # Print first 100 characters of the description
 
     reranked_docs = rerank_docs(initial_solution.code, retrieved_docs, top_k=3)
@@ -69,22 +72,12 @@ async def solve_single_problem(args: Args, problem_name: str, retriever):
             
             print(f"\nDocument {i}:")
             print(f"Description:\n{doc['description']}")
-            print(f"\nCode:\n{doc['code']}")
+            print(f"\nCode:\n{doc['cleaned_code']}")
             print(f"Similarity: {doc['similarity']:.4f}")
 
 
     # Prepare examples for the prompt
-    examples = """Examples:
-"""
-    for i, doc in enumerate(reranked_docs, 1):
-        examples += f"""Example {i}:
-Description:
-{doc['description']}
-
-Code:
-{doc['code']}
-
-    """
+    examples = format_examples(reranked_docs)
     
     initial_solution = solve_problem(problem, use_images=args.use_images, timeout=args.timeout, examples = examples)
     solution_attempts = []
@@ -104,8 +97,8 @@ Code:
         for attempt in range(args.max_attempts):
             
             logging.info(f"Attempt {attempt + 1} - Reflecting and improving...")
-            reflection_result = await reflection(problem, current_solution, examples)
-            improved_solution = await improve_solution(problem, current_solution,reflection_result, examples)
+            reflection_result = await reflection(problem.as_xml, current_solution, examples)
+            improved_solution = await improve_solution(problem.as_xml, current_solution,reflection_result, examples)
             
             solution_result = try_solution(problem, improved_solution, args.timeout)
             solution_attempts.append(solution_result)
@@ -188,7 +181,6 @@ def solve_full_input(problem: Problem, solution: SolutionAttempt, args: Args) ->
             }
             
             if args.save_output:
-                problem.save_output(generated_output)
                 problem.save_code(solution.code)
                 result["output_saved"] = True
         except TimeoutException:
@@ -196,6 +188,11 @@ def solve_full_input(problem: Problem, solution: SolutionAttempt, args: Args) ->
                 "status": "timeout",
                 "error": "The solution took too long to execute even with extended timeout."
             }
+
+            if args.save_output:
+                problem.save_code(solution.code)
+                result["output_saved"] = True
+
     except Exception as e:
         result = {"status": "error", "error": str(e)}
     
@@ -211,7 +208,7 @@ async def main(args: Args):
     if not args.cache_directory.exists():
         args.cache_directory.mkdir(parents=True)
 
-    retriever = Retriever()
+    retriever = Retriever("AlaaAhmed2444/rag_full")
     
 
     if args.weave_log:

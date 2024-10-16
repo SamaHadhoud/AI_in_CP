@@ -5,6 +5,11 @@ import logging
 from pathlib import Path
 from typing import Optional, List
 
+def remove_extra_newlines(text: str) -> str:
+    # Use regex to replace 2 or more newlines (with possible whitespace in between) with a single newline
+    text = re.sub(r"\n\s*\n+", "\n", text)
+    return text
+    
 def _encode_image(image_path):
     with open(image_path, "rb") as image_file:
         img = base64.b64encode(image_file.read()).decode("utf-8")
@@ -43,6 +48,25 @@ class Problem:
     folder_path: Path
     code: Optional[str] = None
     images: list[str] = field(default_factory=list)
+
+    @property
+    def as_xml(self) -> str:
+        return f"""
+<problem>
+<problem_statement>
+{remove_extra_newlines(self.problem_description)}
+</problem_statement>
+<sample_test_cases>
+<sample_input>
+{self.sample_input}
+</sample_input>
+<sample_output>
+{self.sample_output}
+</sample_output>
+</sample_test_cases>
+</problem>
+"""
+
 
     def __post_init__(self):
         self._process_description_and_images()

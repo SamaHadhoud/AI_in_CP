@@ -47,14 +47,7 @@ First, explain why you answered the question incorrectly.
 Secondly, create a list of detailed instructions to help you correctly solve this problem in the future.
 Be concise in your response; however, capture all of the essential information.
 
-Problem:
-{problem.problem_description}
-
-Sample Input:
-{problem.sample_input}
-
-Sample Output:
-{problem.sample_output}
+{problem}
 
 <incorrect_solution>
 {solution_result.code}
@@ -64,7 +57,10 @@ Sample Output:
 {error_str}
 {Offending if Offending else ""}
 </test_report>
-{"<example_that_may_help>" + examples + "</example_that_may_help>"  if examples else ""}
+You have previously solved the following problems in this competition:
+<examples>
+{examples}
+</examples>
 
 **Format Instructions: Your response must follow the following xml format** -
 
@@ -102,14 +98,7 @@ async def improve_solution(problem: Problem, previous_solution: SolutionAttempt,
     improve_prompt = f"""
 You have incorrectly answered the following programming problem. Based on the following reflection and improvements, please provide an improved solution to the problem:
 
-Problem:
-{problem.problem_description}
-
-Sample Input:
-{problem.sample_input}
-
-Sample Output:
-{problem.sample_output}
+{problem}
 
 <incorrect_solution>
 {previous_solution.code}
@@ -119,7 +108,10 @@ Sample Output:
 {error_str}
 {Offending if Offending else ""}
 </test_report>
-{"<example_that_may_help>" + examples + "</example_that_may_help>"  if examples else ""}
+You have previously solved the following problems in this competition:
+<examples>
+{examples}
+</examples>
 Reflection and improvements:
 {reflection}
 
