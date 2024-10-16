@@ -26,7 +26,8 @@ class Args(simple_parsing.Serializable):
     problem_names: List[str] = field(default_factory=lambda:  [
         "cheeseburger_corollary_ch1", 
         "cheeseburger_corollary_ch2", "dim_sum_delivery", "two_apples_a_day", "road_to_nutella"])
-        # "here_comes_santa_claus", "sum_41_ch1",
+        # # "here_comes_santa_claus", 
+        # "sum_41_ch1",
         # "sum_41_ch2", 
         
         # "back_in_black_ch1", "back_in_black_ch2", "today_is_gonna_be_a_great_day", "bohemian_rap-sody"] ) # list of problems to solve
@@ -44,12 +45,24 @@ async def solve_single_problem(args: Args, problem_name: str, retriever):
     """Solve a single problem and log results in Weave."""
     problem = Problem.from_name(problem_name, args.folder_path)
     logging.info(f"Solving problem: {problem_name}")
-    initial_solution = solve_problem(problem, use_images=args.use_images, timeout=args.timeout)
+    initial_draft_solution = solve_problem(problem, use_images=args.use_images, timeout=args.timeout)
+
+    solution_attempts = []
+    
+    solution_attempts.append(initial_draft_solution)
+
+    weave.save({f"{problem_name}_initial_draft_attempt": initial_draft_solution})
+    logging.info(f"Initial draft attempt - Status: {initial_draft_solution.status}")
+    
+    # Check full input on initial solution
+    logging.info("> Checking full input on initial solution...")
+    initial_draft_full_input_result = solve_full_input(problem, initial_draft_solution, args)
+    weave.save({f"{problem_name}_initial_full_draft_input_result": initial_draft_full_input_result})
 
     # Use the generated code as a query for retrieval
     # Retrieve documents
     print("\nAttempting to retrieve documents...")
-    retrieved_docs = retriever.retrieve(initial_solution.code, k=5)
+    retrieved_docs = retriever.retrieve(initial_draft_solution.code, k=50)
 
     if not retrieved_docs:
         print("No documents retrieved. Check the query processing.")
@@ -60,7 +73,7 @@ async def solve_single_problem(args: Args, problem_name: str, retriever):
             print(f"Code:\n{doc['cleaned_code'][:200]}...")  # Print first 200 characters of the code
             print(f"Description: {doc['description'][:100]}...")  # Print first 100 characters of the description
 
-    reranked_docs = rerank_docs(initial_solution.code, retrieved_docs, top_k=3)
+    reranked_docs = rerank_docs(problem, initial_draft_solution.code, retrieved_docs, top_k=3)
 
     if not reranked_docs:
         print("No documents after reranking. Check the reranking process.")
@@ -80,7 +93,9 @@ async def solve_single_problem(args: Args, problem_name: str, retriever):
     examples = format_examples(reranked_docs)
     
     initial_solution = solve_problem(problem, use_images=args.use_images, timeout=args.timeout, examples = examples)
-    solution_attempts = []
+    
+    # best_initial_solution_list = rank_solutions([initial_solution, initial_draft_solution])
+    # best_initial_solution = best_initial_solution_list[0]
     
     solution_attempts.append(initial_solution)
 

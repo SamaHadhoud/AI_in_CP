@@ -51,16 +51,16 @@ def call_model(messages, **kwargs):
         else:
             processed_messages.append({"role": role, "content": content})
 
-    # Format messages for VLLM
-    prompt = "\n".join([f"{msg['role'].capitalize()}: {msg['content']}" for msg in processed_messages])
-    prompt += "\nAssistant:"
+    # # Format messages for VLLM
+    # prompt = "\n".join([f"{msg['role'].capitalize()}: {msg['content']}" for msg in processed_messages])
+    # prompt += "\nAssistant:"
 
     # Set up sampling parameters
     sampling_params = SamplingParams(temperature=0.7, top_p=0.95, max_tokens=4000)
 
     # Generate
     vllm_instance = get_vllm()
-    outputs = vllm_instance.generate([prompt], sampling_params)
+    outputs = vllm_instance.generate(processed_messages, sampling_params)
     
     # Extract and return the generated text
     return outputs[0].outputs[0].text
@@ -92,18 +92,21 @@ def generate_code(
 
         # Count tokens for prompts
         system_prompt_tokens = count_tokens(system_prompt)
-        
-
-        if not examples:
-            formatted_prompt = prompt_template_without_examples.format(
+        if examples:
+            system_prompt=system_prompt_with_examples.format(examples=examples)
+        formatted_prompt = prompt_template_without_examples.format(
                     problem=problem.as_xml
                 )
-            prompt_template = prompt_template_without_examples
-        else:
-            formatted_prompt = prompt_template.format(
-                problem=problem.as_xml,
-                examples=examples
-            )
+        # if not examples:
+        #     formatted_prompt = prompt_template_without_examples.format(
+        #             problem=problem.as_xml
+        #         )
+        #     prompt_template = prompt_template_without_examples
+        # else:
+        #     formatted_prompt = prompt_template.format(
+        #         problem=problem.as_xml,
+        #         examples=examples
+        #     )
         prompt_template_tokens = count_tokens(formatted_prompt)
         print(formatted_prompt)
         
@@ -134,6 +137,7 @@ def generate_code(
 
 
         # Let's make a second call to the model to extract the code from the response
+        messages = []
         messages.append({"role": "assistant", "content": out})
         messages.append({"role": "user", "content": [
             {"type": "text", 
@@ -163,6 +167,34 @@ def generate_code(
         logging.error(f"Failed to generate valid code after {max_attempts} attempts")
     return "# Failed to generate valid code"
 
+
+system_prompt_with_examples="""
+You are an expert Python developer specializing in algorithmic problem-solving. Your task is to create highly efficient and accurate Python code that precisely addresses the given problem. Your solution should prioritize correctness, optimal performance, and adherence to all problem specifications.
+
+Key Requirements:
+1. Use the function signature: 'def solve(input_data: str) -> str:'
+2. Implement an algorithm that correctly solves all aspects of the problem, including edge cases.
+3. Optimize for both time and space complexity where possible, without compromising correctness.
+4. Include all necessary imports at the beginning of your code.
+5. Handle input and output as strings, parsing and formatting as required.
+6. Provide clear, concise comments explaining complex logic or optimizations.
+
+Best Practices:
+- Carefully analyze the problem description to identify all requirements and constraints.
+- Consider various algorithmic approaches and choose the most efficient one for the given problem.
+- Implement robust error handling and input validation where appropriate.
+- Use appropriate data structures to optimize time and space complexity.
+- Write clean, readable code following PEP 8 style guidelines.
+- If applicable, consider using Python's built-in functions and libraries for optimization.
+
+You have previously solved the following problems in this competition:
+<examples>
+{examples}
+</examples>
+
+Remember: Your primary goal is to create a solution that is both correct and efficient, capable of handling all possible inputs within the problem's constraints.
+"""
+
 system_prompt="""
 You are an expert Python developer specializing in algorithmic problem-solving. Your task is to create highly efficient and accurate Python code that precisely addresses the given problem. Your solution should prioritize correctness, optimal performance, and adherence to all problem specifications.
 
@@ -170,10 +202,9 @@ Key Requirements:
 1. Use the function signature: 'def solve(input_data: str) -> str:'
 2. Implement an algorithm that correctly solves all aspects of the problem, including edge cases.
 3. Optimize for both time and space complexity where possible, without compromising correctness.
-4. Use 'from tqdm import tqdm' for progress bars in loops processing large datasets.
-5. Include all necessary imports at the beginning of your code.
-6. Handle input and output as strings, parsing and formatting as required.
-7. Provide clear, concise comments explaining complex logic or optimizations.
+4. Include all necessary imports at the beginning of your code.
+5. Handle input and output as strings, parsing and formatting as required.
+6. Provide clear, concise comments explaining complex logic or optimizations.
 
 Best Practices:
 - Carefully analyze the problem description to identify all requirements and constraints.
@@ -200,7 +231,6 @@ Please provide only the Python code, enclosed in triple backticks, like this:
 
 ```python
 # Your imports here
-from tqdm import tqdm
 
 def solve(input_data: str) -> str:
     # Your code here
@@ -208,11 +238,6 @@ def solve(input_data: str) -> str:
 
 prompt_template = """
 {problem}
-
-You have previously solved the following problems in this competition:
-<examples>
-{examples}
-</examples>
 
 I want you to get inspired from them. and create a Python program that solves the current problem. Your solution must include a function named 'solve' with the following signature:
 
@@ -225,7 +250,6 @@ Please provide only the Python code, enclosed in triple backticks, like this:
 
 ```python
 # Your imports here
-from tqdm import tqdm
 
 def solve(input_data: str) -> str:
     # Your code here
@@ -237,14 +261,12 @@ Extract the complete Python code from the previous response. The code should:
 1. Be enclosed in triple backticks with the Python language specifier.
 2. Include all necessary imports at the top.
 3. Contain a 'solve' function with the signature: def solve(input_data: str) -> str:
-4. Use 'for sample in tqdm(range(samples))' for any loops to show progress.
-5. Be a complete, runnable Python program.
+4. Be a complete, runnable Python program.
 
 Provide only the code, without any additional explanations or comments. The response should look like this:
 
 ```python
 # Imports
-from tqdm import tqdm
 
 def solve(input_data: str) -> str:
     # Function implementation

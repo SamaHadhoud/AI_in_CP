@@ -233,19 +233,45 @@ def get_embeddings(texts, vectorizer=None):
     
     return vectorizer, embeddings.toarray()
 
-def rerank_docs(query: str, retrieved_docs: List[dict], top_k: int = 3) -> List[dict]:
-    if not retrieved_docs:
-        return []
+def rerank_docs(problem, query: str, retrieved_docs: List[dict], top_k: int = 3) -> List[dict]:
+    print(f"Number of retrieved docs: {len(retrieved_docs)}")
     
-    vectorizer, docs_embeddings = get_embeddings([doc["cleaned_code"] for doc in retrieved_docs])
-    _, query_embeddings = get_embeddings(query, vectorizer)
+    _,query_embeddings = get_embeddings(
+        problem.problem_description + " " + query
+    )
+    print(f"Shape of query_embeddings: {query_embeddings.shape}")
+    
+    docs_embeddings = []
+    for doc in retrieved_docs:
+        _, doc_embedding = get_embeddings(doc["description"] + " " + doc["cleaned_code"])
+        docs_embeddings.append(doc_embedding[0])  # Assuming each embedding is a 1D array
+    docs_embeddings = np.array(docs_embeddings)
+    
+    print(f"Shape of docs_embeddings: {docs_embeddings.shape}")
 
-    similarities = cosine_similarity(query_embeddings, docs_embeddings)[0]
+    similarities = cosine_similarity(query_embeddings, docs_embeddings)
     docs_df = pd.DataFrame(retrieved_docs)
-    docs_df["similarity"] = similarities
+    docs_df["similarity"] = similarities[0]
     docs_df = docs_df.sort_values(by="similarity", ascending=False)
-    docs_df = docs_df.drop_duplicates(subset=["cleaned_code"], keep="first")
+    docs_df = docs_df.drop_duplicates(
+        subset=["description"],
+        keep="first",
+    )
     return docs_df.head(top_k).to_dict(orient="records")
+
+    # if not retrieved_docs:
+    #     return []
+    
+    # vectorizer, docs_embeddings = get_embeddings([doc["cleaned_code"] for doc in retrieved_docs])
+    # _, query_embeddings = get_embeddings(query, vectorizer)
+
+    
+    # similarities = cosine_similarity(query_embeddings, docs_embeddings).flatten()
+    # docs_df = pd.DataFrame(retrieved_docs)
+    # docs_df["similarity"] = similarities
+    # docs_df = docs_df.sort_values(by="similarity", ascending=False)
+    # docs_df = docs_df.drop_duplicates(subset=["cleaned_code"], keep="first")
+    # return docs_df.head(top_k).to_dict(orient="records")
 
 
 def format_examples(examples: List[dict]) -> str:

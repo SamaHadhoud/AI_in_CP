@@ -1,6 +1,11 @@
 from vllm import LLM, SamplingParams
 from transformers import AutoTokenizer
 
+from huggingface_hub import login
+
+# Add Hugging Face login
+login(token="YOUR_TOKEN")
+
 # class VLLMSingleton:
 #     _instance = None
 
@@ -53,6 +58,7 @@ class VLLMSingleton:
 
     def __init__(self):
         model_name = "Qwen/Qwen2.5-Coder-7B-Instruct"
+        # model_name= "mistralai/Mixtral-8x7B-Instruct-v0.1"
         self.llm = LLM(model=model_name, 
                        trust_remote_code=True, 
                        enforce_eager=True,
@@ -66,9 +72,15 @@ class VLLMSingleton:
         self.tokenizer = AutoTokenizer.from_pretrained(model_name)
 
     def generate(self, prompts, sampling_params=None):
+
+        text = self.tokenizer.apply_chat_template(
+            prompts,
+            tokenize=False,
+            add_generation_prompt=True
+        )
         if sampling_params is None:
             sampling_params = self.default_sampling_params
-        outputs = self.llm.generate(prompts, sampling_params)
+        outputs = self.llm.generate([text], sampling_params)
         return outputs
 
     def tokenize(self, text):
