@@ -4,7 +4,7 @@ from transformers import AutoTokenizer
 from huggingface_hub import login
 
 # Add Hugging Face login
-login(token="YOUR_TOKEN")
+login(token="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")
 
 # class VLLMSingleton:
 #     _instance = None
@@ -45,6 +45,8 @@ login(token="YOUR_TOKEN")
 
 from vllm import LLM, SamplingParams
 from transformers import AutoTokenizer
+model_name = "Qwen/Qwen2.5-Coder-7B-Instruct"
+# model_name="NTQAI/Nxcode-CQ-7B-orpo"
 
 class VLLMSingleton:
     _instance = None
@@ -58,13 +60,12 @@ class VLLMSingleton:
 
     def __init__(self):
         model_name = "Qwen/Qwen2.5-Coder-7B-Instruct"
-        # model_name= "mistralai/Mixtral-8x7B-Instruct-v0.1"
         self.llm = LLM(model=model_name, 
                        trust_remote_code=True, 
                        enforce_eager=True,
                        dtype="float16", 
                        gpu_memory_utilization=0.9,
-                       max_model_len=8000)
+                       max_model_len=12000)
         
         self.default_sampling_params = SamplingParams(temperature=0.1, top_p=0.95, max_tokens=8000)
         

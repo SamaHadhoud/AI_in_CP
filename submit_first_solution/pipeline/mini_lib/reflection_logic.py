@@ -4,7 +4,7 @@ from typing import Optional, List
 import weave
 from mini_lib.problem import Problem
 import json
-from one_shot import call_model, system_prompt, extract_prompt
+from one_shot import call_model, system_prompt, extract_prompt, system_prompt_with_examples
 import logging
 import re
 @dataclass
@@ -44,8 +44,15 @@ You have incorrectly answered the following programming problem.
 Your task is to reflect on the problem, your solution, and the correct answer.
 You will then use this information help you answer the same question in the future. 
 First, explain why you answered the question incorrectly.
-Secondly, create a list of detailed instructions to help you correctly solve this problem in the future.
+Second, list the keywords that describe the type of your errors from most general to most specific.
+Third, solve the problem again, step-by-step, based on your knowledge of the correct answer.
+G, create a list of detailed instructions to help you correctly solve this problem in the future.
 Be concise in your response; however, capture all of the essential information.
+
+You have previously solved the following problems in this competition:
+<examples>
+{examples}
+</examples>
 """
     reflection_prompt = f""" 
 {problem}
@@ -64,6 +71,12 @@ Be concise in your response; however, capture all of the essential information.
 <reflection>
 [Reflect on the problem, your solution, and the correct answer.]
 </reflection>
+<keywords>
+[List the keywords that describe the type of your errors from most general to most specific.]
+</keywords>
+<step_by_step_solution>
+[Solve the problem again, step-by-step, based on your knowledge of the correct answer.]
+</step_by_step_solution>
 <instructions>
 [Create a list of detailed instructions to help you correctly solve this problem in the future.]
 </instructions>
@@ -111,7 +124,7 @@ async def improve_solution(problem: Problem, previous_solution: SolutionAttempt,
     
 
     messages = [
-        {"role": "system", "content": system_prompt},
+        {"role": "system", "content": system_prompt_with_examples.format(examples=examples)},
         {"role": "user", "content": problem},
         {"role": "assistant", "content": f"<incorrect_solution>{previous_solution.code}</incorrect_solution>"},
         {"role": "user", "content": f"""<test_report>

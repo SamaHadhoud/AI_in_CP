@@ -65,15 +65,35 @@ def check_solution(expected: str, actual: str) -> dict:
     logging.debug(f"Actual lines: {actual_lines}")
     offending_cases = []
     i = 1
-    for expected_line, actual_line in zip(expected_lines, actual_lines):
-        expected_line = expected_line.strip()
-        actual_line = actual_line.strip()
+
+    def match_to_third_decimal(a, b):
+        # Extract the part after "Case #x: "
+        a_match = re.match(r'Case #\d+:\s*([-+]?\d*\.\d+)', a)
+        b_match = re.match(r'Case #\d+:\s*([-+]?\d*\.\d+)', b)
         
-        if expected_line == actual_line:
-            matches += 1  # +1 for the whole line match
+        if a_match and b_match:
+            a_num = round(float(a_match.group(1)), 3)
+            b_num = round(float(b_match.group(1)), 3)
+            return abs(a_num - b_num) < 0.001
+        else:
+            # If the format doesn't match, do an exact string comparison
+            return a == b
+    
+    for i, (expected_line, actual_line) in enumerate(zip(expected_lines, actual_lines), 1):
+        if match_to_third_decimal(expected_line, actual_line):
+            matches += 1
         else:
             offending_cases.append([i, expected_line, actual_line])
-        i+=1
+
+    # for expected_line, actual_line in zip(expected_lines, actual_lines):
+    #     expected_line = expected_line.strip()
+    #     actual_line = actual_line.strip()
+        
+    #     if expected_line == actual_line:
+    #         matches += 1  # +1 for the whole line match
+    #     else:
+    #         offending_cases.append([i, expected_line, actual_line])
+    #     i+=1
     return {"actual" : actual, "matches": matches == len(expected_lines), "total": len(expected_lines), "len_offending_cases": len(offending_cases), "len_passed_cases": len(expected_lines) - len(offending_cases),"offending_cases": offending_cases}
 
 class TimeoutException(Exception):

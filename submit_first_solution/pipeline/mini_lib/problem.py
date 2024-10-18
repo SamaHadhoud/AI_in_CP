@@ -4,7 +4,7 @@ from dataclasses import dataclass, field
 import logging
 from pathlib import Path
 from typing import Optional, List
-
+import os
 def remove_extra_newlines(text: str) -> str:
     # Use regex to replace 2 or more newlines (with possible whitespace in between) with a single newline
     text = re.sub(r"\n\s*\n+", "\n", text)
@@ -77,6 +77,8 @@ class Problem:
         self.images = [_encode_image(str(image_path)) for image_path in used_images]
 
     def get_input(self) -> str:
+        if not os.path.exists(self.input_path):
+            return ""
         return self.input_path.read_text()
 
     def get_output(self) -> str:

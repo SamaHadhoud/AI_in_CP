@@ -16,6 +16,7 @@ from mini_lib.reflection_logic import *
 import os
 os.environ["TOKENIZERS_PARALLELISM"] = "false"
 from models import get_vllm, get_embedding_model
+from models.vllm_model import model_name
 import time
 from retrieval_logic import *
 
@@ -24,20 +25,24 @@ import asyncio
 @dataclass
 class Args(simple_parsing.Serializable):
     problem_names: List[str] = field(default_factory=lambda:  [
-        "cheeseburger_corollary_ch1", 
-        "cheeseburger_corollary_ch2", "dim_sum_delivery", "two_apples_a_day", "road_to_nutella"])
+
+        "line_by_line","walk_the_line", "fall_in_line", "line_of_delivery_1", "line_of_delivery_2"])
+        
+        # "cheeseburger_corollary_ch1", 
+        # "cheeseburger_corollary_ch2", "dim_sum_delivery", "two_apples_a_day", "road_to_nutella"])
         # # "here_comes_santa_claus", 
         # "sum_41_ch1",
         # "sum_41_ch2", 
         
         # "back_in_black_ch1", "back_in_black_ch2", "today_is_gonna_be_a_great_day", "bohemian_rap-sody"] ) # list of problems to solve
-    folder_path: Path = Path("./dataset/2023/practice/")
+    # folder_path: Path = Path("./dataset/2023/practice/")
+    folder_path: Path = Path("./dataset/contestData_practice2024")
     weave_log: bool = True
     use_images: bool = False
     save_output: bool = True
     debug: bool = False
-    timeout: int = 60
-    max_attempts: int = 10
+    timeout: int = 40
+    max_attempts: int = 20
     cache_directory: Path = Path("data/cache")
 
 @weave.op()
@@ -62,7 +67,7 @@ async def solve_single_problem(args: Args, problem_name: str, retriever):
     # Use the generated code as a query for retrieval
     # Retrieve documents
     print("\nAttempting to retrieve documents...")
-    retrieved_docs = retriever.retrieve(initial_draft_solution.code, k=50)
+    retrieved_docs = retriever.retrieve(initial_draft_solution.code, k=500)
 
     if not retrieved_docs:
         print("No documents retrieved. Check the query processing.")
@@ -163,9 +168,15 @@ def try_solution(problem: Problem, code: str, timeout: int) -> SolutionAttempt:
 @weave.op()
 def solve_full_input(problem: Problem, solution: SolutionAttempt, args: Args) -> dict:
     """Solve the problem with full input and return the results."""
-    expected_output = problem.get_output()
+
     result = {}
+    input=problem.get_input()
+    if not input:
+        problem.save_code(solution.code)
+        result["output_saved"] = True
+        return "no input"
     
+    expected_output = problem.get_output()
     try:
         start_time = time.time()
         generated_output = run(solution.code, input=problem.get_input(), timeout=args.timeout)
@@ -223,11 +234,13 @@ async def main(args: Args):
     if not args.cache_directory.exists():
         args.cache_directory.mkdir(parents=True)
 
+    if args.weave_log:
+        weave.init(f"hack-cup-{model_name.replace('/', '-')}")
+
     retriever = Retriever("AlaaAhmed2444/rag_full")
     
 
-    if args.weave_log:
-        weave.init("hack-starter")
+
 
     all_results = {}
     for problem_name in args.problem_names:

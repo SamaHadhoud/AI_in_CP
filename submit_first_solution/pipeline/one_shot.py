@@ -169,7 +169,10 @@ def generate_code(
 
 
 system_prompt_with_examples="""
-You are an expert Python developer specializing in algorithmic problem-solving. Your task is to create highly efficient and accurate Python code that precisely addresses the given problem. Your solution should prioritize correctness, optimal performance, and adherence to all problem specifications.
+You are a world-class competitive programmer tasked with solving a programming problem. 
+You will be provided with a problem statement, and you need to create a Python3 solution for it. 
+Your task it to develop a winning solution to the problem in Python3 programming language.
+
 
 Key Requirements:
 1. Use the function signature: 'def solve(input_data: str) -> str:'
@@ -193,10 +196,18 @@ You have previously solved the following problems in this competition:
 </examples>
 
 Remember: Your primary goal is to create a solution that is both correct and efficient, capable of handling all possible inputs within the problem's constraints.
+Create a Python program that solves the current problem. Your solution must include a function named 'solve' with the following signature:
+
+def solve(input_data: str) -> str:
+    # Your code here
+
+The 'solve' function should take the input as a string and return the output as a string.
 """
 
 system_prompt="""
-You are an expert Python developer specializing in algorithmic problem-solving. Your task is to create highly efficient and accurate Python code that precisely addresses the given problem. Your solution should prioritize correctness, optimal performance, and adherence to all problem specifications.
+You are a world-class competitive programmer tasked with solving a programming problem. 
+You will be provided with a problem statement, and you need to create a Python3 solution for it. 
+Your task it to develop a winning solution to the problem in Python3 programming language.
 
 Key Requirements:
 1. Use the function signature: 'def solve(input_data: str) -> str:'
@@ -215,17 +226,16 @@ Best Practices:
 - If applicable, consider using Python's built-in functions and libraries for optimization.
 
 Remember: Your primary goal is to create a solution that is both correct and efficient, capable of handling all possible inputs within the problem's constraints.
-"""
-
-prompt_template_without_examples= """
-{problem}
 
 Create a Python program that solves the current problem. Your solution must include a function named 'solve' with the following signature:
-
 def solve(input_data: str) -> str:
     # Your code here
 
 The 'solve' function should take the input as a string and return the output as a string.
+"""
+
+prompt_template_without_examples= """
+{problem}
 
 Please provide only the Python code, enclosed in triple backticks, like this:
 
@@ -238,13 +248,6 @@ def solve(input_data: str) -> str:
 
 prompt_template = """
 {problem}
-
-I want you to get inspired from them. and create a Python program that solves the current problem. Your solution must include a function named 'solve' with the following signature:
-
-def solve(input_data: str) -> str:
-    # Your code here
-
-The 'solve' function should take the input as a string and return the output as a string.
 
 Please provide only the Python code, enclosed in triple backticks, like this:
 

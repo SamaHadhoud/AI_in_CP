@@ -212,46 +212,57 @@ class Retriever:
 # tokenizer = AutoTokenizer.from_pretrained(model_name)
 # llm = LLM(model=model_name, dtype="float16", gpu_memory_utilization=0.95)
 
-def get_embeddings(texts, vectorizer=None):
-    vllm = get_vllm()
+# def get_embeddings(texts, vectorizer=None):
+#     vllm = get_vllm()
+#     if isinstance(texts, str):
+#         texts = [texts]
+    
+#     prompt_template = "Summarize the following code in one sentence: {}"
+#     prompts = [prompt_template.format(text) for text in texts]
+    
+#     sampling_params = SamplingParams(temperature=0.0, max_tokens=50)
+#     outputs = vllm.generate(prompts, sampling_params)
+    
+#     summaries = [output.outputs[0].text.strip() for output in outputs]
+    
+#     if vectorizer is None:
+#         vectorizer = TfidfVectorizer()
+#         embeddings = vectorizer.fit_transform(summaries)
+#     else:
+#         embeddings = vectorizer.transform(summaries)
+    
+#     return vectorizer, embeddings.toarray()
+
+@weave.op(name="get_embeddings")
+def get_embeddings(texts):
     if isinstance(texts, str):
         texts = [texts]
+    texts = [text.replace("\n", " ") for text in texts]
     
-    prompt_template = "Summarize the following code in one sentence: {}"
-    prompts = [prompt_template.format(text) for text in texts]
+    embedding_model = get_embedding_model()
+    embeddings = embedding_model.encode(texts)
     
-    sampling_params = SamplingParams(temperature=0.0, max_tokens=50)
-    outputs = vllm.generate(prompts, sampling_params)
-    
-    summaries = [output.outputs[0].text.strip() for output in outputs]
-    
-    if vectorizer is None:
-        vectorizer = TfidfVectorizer()
-        embeddings = vectorizer.fit_transform(summaries)
-    else:
-        embeddings = vectorizer.transform(summaries)
-    
-    return vectorizer, embeddings.toarray()
+    return embeddings.tolist()
 
 def rerank_docs(problem, query: str, retrieved_docs: List[dict], top_k: int = 3) -> List[dict]:
     print(f"Number of retrieved docs: {len(retrieved_docs)}")
     
-    _,query_embeddings = get_embeddings(
-        problem.problem_description + " " + query
-    )
+    # Get query embeddings
+    query_text = problem.problem_description + " " + query
+    query_embeddings = get_embeddings([query_text])
+    query_embeddings = np.array(query_embeddings)
     print(f"Shape of query_embeddings: {query_embeddings.shape}")
     
-    docs_embeddings = []
-    for doc in retrieved_docs:
-        _, doc_embedding = get_embeddings(doc["description"] + " " + doc["cleaned_code"])
-        docs_embeddings.append(doc_embedding[0])  # Assuming each embedding is a 1D array
+    # Get document embeddings
+    docs_texts = [doc["description"] + " " + doc["original_code"] for doc in retrieved_docs]
+    docs_embeddings = get_embeddings(docs_texts)
     docs_embeddings = np.array(docs_embeddings)
     
     print(f"Shape of docs_embeddings: {docs_embeddings.shape}")
 
-    similarities = cosine_similarity(query_embeddings, docs_embeddings)
+    similarities = cosine_similarity(query_embeddings, docs_embeddings)[0]
     docs_df = pd.DataFrame(retrieved_docs)
-    docs_df["similarity"] = similarities[0]
+    docs_df["similarity"] = similarities
     docs_df = docs_df.sort_values(by="similarity", ascending=False)
     docs_df = docs_df.drop_duplicates(
         subset=["description"],
@@ -282,7 +293,7 @@ def format_examples(examples: List[dict]) -> str:
 {example['description']}
 </problem_statement>
 <source_code>
-{example['cleaned_code']}
+{example['original_code']}
 </source_code>
 </problem>
 """
