@@ -5,7 +5,7 @@ from dataclasses import dataclass, field
 import weave
 import simple_parsing
 from vllm import LLM, SamplingParams
-from mini_lib.problem import Problem
+from mini_lib.problem24 import Problem
 from mini_lib.utils import maybe_remove_backticks, check_solution, setup_logger, run,TimeoutException
 import re
 from transformers import AutoTokenizer, AutoModelForCausalLM, GenerationConfig

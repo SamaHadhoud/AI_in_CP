@@ -26,7 +26,7 @@ from dataclasses import dataclass
 from pathlib import Path
 import logging
 import simple_parsing
-from mini_lib.problem import Problem
+from mini_lib.problem24 import Problem
 from mini_lib.utils import maybe_remove_backticks, check_solution, setup_logger, run, TimeoutException
 
 import torch

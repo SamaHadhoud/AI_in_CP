@@ -2,7 +2,7 @@
 from dataclasses import dataclass
 from typing import Optional, List
 import weave
-from mini_lib.problem import Problem
+from mini_lib.problem24 import Problem
 import json
 from one_shot import call_model, system_prompt, extract_prompt, system_prompt_with_examples
 import logging
@@ -57,9 +57,6 @@ You have previously solved the following problems in this competition:
     reflection_prompt = f""" 
 Problem Statement:
 {problem}
-
-Problem Analysis:
-{analysis}
 
 <incorrect_solution>
 {solution_result.code}
@@ -131,10 +128,7 @@ async def improve_solution(problem: Problem, analysis, previous_solution: Soluti
     messages = [
         {"role": "system", "content": system_prompt_with_examples.format(examples=examples)},
         {"role": "user", "content": """Problem Statement:
-{problem}
-
-Problem Analysis:
-{analysis}"""},
+{problem}"""},
         {"role": "assistant", "content": f"<incorrect_solution>{previous_solution.code}</incorrect_solution>"},
         {"role": "user", "content": f"""<test_report>
 {"Status: " + previous_solution.status if previous_solution.status != "success" else ""} {error_str}

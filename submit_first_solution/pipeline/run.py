@@ -5,7 +5,7 @@ from dataclasses import dataclass, field
 import weave
 import simple_parsing
 from vllm import LLM, SamplingParams
-from mini_lib.problem import Problem
+from mini_lib.problem24 import Problem
 from mini_lib.utils import maybe_remove_backticks, check_solution, setup_logger, run,TimeoutException
 import re
 from transformers import AutoTokenizer, AutoModelForCausalLM, GenerationConfig
@@ -27,9 +27,9 @@ class Args(simple_parsing.Serializable):
     problem_names: List[str] = field(default_factory=lambda:  [
 
         # "subsonic_subway", "prime_subtractorization", "substantial_losses", "substitution_cipher", "wildcard_submissions"])
-
-        "line_by_line","walk_the_line", 
-        "fall_in_line", "line_of_delivery_1", "line_of_delivery_2"])
+        "Bunny Hopscotch", "Cottontail Climb (Part1)",  "Cottontail Climb (Part2)", "Four in a Burrow", "Splitting Hares"])
+        # "Line by Line","Walk the Line", 
+        # "Fall in Line", "line_of_delivery_1", "line_of_delivery_2"])
         
         # "cheeseburger_corollary_ch1", 
         # "cheeseburger_corollary_ch2", "dim_sum_delivery", "two_apples_a_day", "road_to_nutella"])
@@ -39,12 +39,12 @@ class Args(simple_parsing.Serializable):
         
         # "back_in_black_ch1", "back_in_black_ch2", "today_is_gonna_be_a_great_day", "bohemian_rap-sody"] ) # list of problems to solve
     # folder_path: Path = Path("./dataset/2023/practice/")
-    folder_path: Path = Path("./dataset/2024-practice")
+    folder_path: Path = Path("./2024-practice")
     weave_log: bool = True
     use_images: bool = False
     save_output: bool = True
     debug: bool = False
-    timeout: int = 40
+    timeout: int = 30
     max_attempts: int = 20
     cache_directory: Path = Path("data/cache")
 
