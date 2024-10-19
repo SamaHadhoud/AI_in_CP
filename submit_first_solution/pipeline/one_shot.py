@@ -66,10 +66,60 @@ def call_model(messages, **kwargs):
     return outputs[0].outputs[0].text
 
 
+@weave.op
+def self_reflection_on_problem(problem: Problem):
+    self_reflection_system_prompt = """
+    You are a world-class competitive programmer tasked with analyzing programming problems. Your role is to provide a clear, concise, and structured summary of the given problem's core requirements in XML format. Follow these guidelines strictly:
+
+    1. Focus only on essential elements directly stated in the problem:
+    <key_elements>
+    <task>Main objective or question to be solved, using exact wording from the problem</task>
+    <variables>Key variables or parameters involved, with their exact descriptions, units (if given)</variables>
+    <constraints>All constraints or limitations, exactly as stated in the problem</constraints>
+    <input>Input format and description, verbatim from the problem</input>
+    <output>Output format and description, verbatim from the problem, including any precision requirements</output>
+    <formulas>Any mathematical formulas or equations explicitly given in the problem statement</formulas>
+    <logic_flow>High-level description of what needs to be done, based strictly on given information, without any problem-solving steps</logic_flow>
+    </key_elements>
+
+    2. Provide only the information explicitly stated in the problem statement.
+    3. Do not infer, assume, or add any information not directly provided in the problem description.
+    4. Do not attempt to solve the problem or provide solution strategies.
+    5. Use the exact variable names, descriptions, units, and mathematical notation given in the problem.
+    6. Include all stated constraints, even if they seem obvious.
+    7. For the logic_flow, provide only a high-level overview of what the problem asks, without adding any solution steps.
+    8. If any part of the problem is unclear or ambiguous, reflect this uncertainty in your analysis.
+    9. Ensure that all mathematical notations and symbols are accurately represented.
+    10. Pay special attention to units (like percentages) and include them in the variable descriptions.
+    11. Include a <formulas> tag only if mathematical formulas or equations are explicitly given in the problem statement. If no formulas are given, omit this tag.
+
+    Present your analysis in a well-structured XML format, using appropriate tags for each element.
+    """
+
+    self_reflection_user_prompt = """
+    Analyze the following programming problem and provide a concise summary of its core requirements in XML format:
+
+    {problem}
+
+    Remember to focus only on the essential elements explicitly stated in the problem. Do not infer or add any information not directly provided in the problem description. Be specific and use exact wording, notation, and units from the problem statement. Include any formulas explicitly given. Do not attempt to solve the problem or suggest solution strategies.
+    """
+    messages = [
+        {"role": "system", "content": self_reflection_system_prompt},
+        {"role": "user", "content": self_reflection_user_prompt.format(problem=problem)}
+    ]
+
+    # Call the model to get the analysis
+    analysis = call_model(messages=messages)
+
+    return analysis
+
+
+
 
 @weave.op
 def generate_code(
     problem: Problem, 
+    analysis,
     system_prompt: str, 
     prompt_template: str, 
     prompt_template_without_examples:str,
@@ -95,7 +145,8 @@ def generate_code(
         if examples:
             system_prompt=system_prompt_with_examples.format(examples=examples)
         formatted_prompt = prompt_template_without_examples.format(
-                    problem=problem.as_xml
+                    problem=problem.as_xml,
+                    analysis = analysis
                 )
         # if not examples:
         #     formatted_prompt = prompt_template_without_examples.format(
@@ -247,7 +298,11 @@ def solve(input_data: str) -> str:
 """
 
 prompt_template = """
+Problem Statement:
 {problem}
+
+Problem Analysis:
+{analysis}
 
 Please provide only the Python code, enclosed in triple backticks, like this:
 
@@ -278,9 +333,10 @@ def solve(input_data: str) -> str:
 
 
 @weave.op
-def solve_problem(problem: Problem, use_images=False, timeout=60, examples="") -> dict:
+def solve_problem(problem: Problem, analysis, use_images=False, timeout=60, examples="") -> dict:
     code = generate_code(
         problem, 
+        analysis,
         system_prompt=system_prompt, 
         prompt_template=prompt_template, 
         prompt_template_without_examples = prompt_template_without_examples,

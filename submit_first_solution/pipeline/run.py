@@ -26,7 +26,10 @@ import asyncio
 class Args(simple_parsing.Serializable):
     problem_names: List[str] = field(default_factory=lambda:  [
 
-        "line_by_line","walk_the_line", "fall_in_line", "line_of_delivery_1", "line_of_delivery_2"])
+        # "subsonic_subway", "prime_subtractorization", "substantial_losses", "substitution_cipher", "wildcard_submissions"])
+
+        "line_by_line","walk_the_line", 
+        "fall_in_line", "line_of_delivery_1", "line_of_delivery_2"])
         
         # "cheeseburger_corollary_ch1", 
         # "cheeseburger_corollary_ch2", "dim_sum_delivery", "two_apples_a_day", "road_to_nutella"])
@@ -36,7 +39,7 @@ class Args(simple_parsing.Serializable):
         
         # "back_in_black_ch1", "back_in_black_ch2", "today_is_gonna_be_a_great_day", "bohemian_rap-sody"] ) # list of problems to solve
     # folder_path: Path = Path("./dataset/2023/practice/")
-    folder_path: Path = Path("./dataset/contestData_practice2024")
+    folder_path: Path = Path("./dataset/2024-practice")
     weave_log: bool = True
     use_images: bool = False
     save_output: bool = True
@@ -50,7 +53,9 @@ async def solve_single_problem(args: Args, problem_name: str, retriever):
     """Solve a single problem and log results in Weave."""
     problem = Problem.from_name(problem_name, args.folder_path)
     logging.info(f"Solving problem: {problem_name}")
-    initial_draft_solution = solve_problem(problem, use_images=args.use_images, timeout=args.timeout)
+
+    analysis = self_reflection_on_problem(problem.as_xml)
+    initial_draft_solution = solve_problem(problem, analysis, use_images=args.use_images, timeout=args.timeout)
 
     solution_attempts = []
     
@@ -97,7 +102,7 @@ async def solve_single_problem(args: Args, problem_name: str, retriever):
     # Prepare examples for the prompt
     examples = format_examples(reranked_docs)
     
-    initial_solution = solve_problem(problem, use_images=args.use_images, timeout=args.timeout, examples = examples)
+    initial_solution = solve_problem(problem, analysis, use_images=args.use_images, timeout=args.timeout, examples = examples)
     
     # best_initial_solution_list = rank_solutions([initial_solution, initial_draft_solution])
     # best_initial_solution = best_initial_solution_list[0]
@@ -117,8 +122,8 @@ async def solve_single_problem(args: Args, problem_name: str, retriever):
         for attempt in range(args.max_attempts):
             
             logging.info(f"Attempt {attempt + 1} - Reflecting and improving...")
-            reflection_result = await reflection(problem.as_xml, current_solution, examples)
-            improved_solution = await improve_solution(problem.as_xml, current_solution,reflection_result, examples)
+            reflection_result = await reflection(problem.as_xml, analysis,  current_solution, examples)
+            improved_solution = await improve_solution(problem.as_xml, analysis, current_solution,reflection_result, examples)
             
             solution_result = try_solution(problem, improved_solution, args.timeout)
             solution_attempts.append(solution_result)

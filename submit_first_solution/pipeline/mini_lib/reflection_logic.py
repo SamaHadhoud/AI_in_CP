@@ -28,7 +28,7 @@ def rank_solutions(solutions: List[SolutionAttempt]) -> List[SolutionAttempt]:
 
 
 @weave.op
-async def reflection(problem: Problem, solution_result: SolutionAttempt, examples) -> str:
+async def reflection(problem: Problem, analysis, solution_result: SolutionAttempt, examples) -> str:
     error_str = f"Error: {solution_result.error}" if solution_result.error else ""
     test_cases_str = json.dumps(solution_result.test_cases, indent=2) if solution_result.test_cases else ""
     Offending = ""
@@ -55,7 +55,12 @@ You have previously solved the following problems in this competition:
 </examples>
 """
     reflection_prompt = f""" 
+Problem Statement:
 {problem}
+
+Problem Analysis:
+{analysis}
+
 <incorrect_solution>
 {solution_result.code}
 </incorrect_solution>
@@ -94,7 +99,7 @@ Let's think step by step to reflect on the problem:
     return reflection_response
 
 @weave.op
-async def improve_solution(problem: Problem, previous_solution: SolutionAttempt, reflection: str = "", examples: str = "") -> str:
+async def improve_solution(problem: Problem, analysis, previous_solution: SolutionAttempt, reflection: str = "", examples: str = "") -> str:
     error_str = f"Error: {previous_solution.error}" if previous_solution.error else ""
     test_cases_str = json.dumps(previous_solution.test_cases, indent=2) if previous_solution.test_cases else ""
     Offending = ""
@@ -125,7 +130,11 @@ async def improve_solution(problem: Problem, previous_solution: SolutionAttempt,
 
     messages = [
         {"role": "system", "content": system_prompt_with_examples.format(examples=examples)},
-        {"role": "user", "content": problem},
+        {"role": "user", "content": """Problem Statement:
+{problem}
+
+Problem Analysis:
+{analysis}"""},
         {"role": "assistant", "content": f"<incorrect_solution>{previous_solution.code}</incorrect_solution>"},
         {"role": "user", "content": f"""<test_report>
 {"Status: " + previous_solution.status if previous_solution.status != "success" else ""} {error_str}
