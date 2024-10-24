@@ -10,9 +10,9 @@ from mini_lib.utils import maybe_remove_backticks, check_solution, setup_logger,
 import re
 from transformers import AutoTokenizer, AutoModelForCausalLM, GenerationConfig
 import torch
-from one_shot import *
-from mini_lib.reflection_logic import *
-
+from zero_shot import *
+from reflection_logic import *
+from choose_best import *
 import os
 os.environ["TOKENIZERS_PARALLELISM"] = "false"
 from models import get_vllm, get_embedding_model
@@ -27,9 +27,9 @@ class Args(simple_parsing.Serializable):
     problem_names: List[str] = field(default_factory=lambda:  [
 
         # "subsonic_subway", "prime_subtractorization", "substantial_losses", "substitution_cipher", "wildcard_submissions"])
-        "Bunny Hopscotch", "Cottontail Climb (Part1)",  "Cottontail Climb (Part2)", "Four in a Burrow", "Splitting Hares"])
-        # "Line by Line","Walk the Line", 
-        # "Fall in Line", "line_of_delivery_1", "line_of_delivery_2"])
+        # "Cottontail Climb (Part 1)", "Cottontail Climb (Part 2)"])
+        "Line by Line","Walk the Line", 
+        "Fall in Line", "Line of Delivery (Part 1)", "Line of Delivery (Part 2)"])
         
         # "cheeseburger_corollary_ch1", 
         # "cheeseburger_corollary_ch2", "dim_sum_delivery", "two_apples_a_day", "road_to_nutella"])
@@ -39,13 +39,15 @@ class Args(simple_parsing.Serializable):
         
         # "back_in_black_ch1", "back_in_black_ch2", "today_is_gonna_be_a_great_day", "bohemian_rap-sody"] ) # list of problems to solve
     # folder_path: Path = Path("./dataset/2023/practice/")
-    folder_path: Path = Path("./2024-practice")
+    folder_path: Path = Path("./2024-practice/")
     weave_log: bool = True
     use_images: bool = False
     save_output: bool = True
     debug: bool = False
     timeout: int = 30
     max_attempts: int = 20
+    retrive_flag: bool = False
+    choose_best_flag: bool = True
     cache_directory: Path = Path("data/cache")
 
 @weave.op()
@@ -68,55 +70,72 @@ async def solve_single_problem(args: Args, problem_name: str, retriever):
     logging.info("> Checking full input on initial solution...")
     initial_draft_full_input_result = solve_full_input(problem, initial_draft_solution, args)
     weave.save({f"{problem_name}_initial_full_draft_input_result": initial_draft_full_input_result})
+    
+    if(args.choose_best_flag):
+        initial_draft_solution = solve_problem_choose_best(problem, analysis, use_images=args.use_images, timeout=args.timeout)
 
-    # Use the generated code as a query for retrieval
-    # Retrieve documents
-    print("\nAttempting to retrieve documents...")
-    retrieved_docs = retriever.retrieve(initial_draft_solution.code, k=500)
+        solution_attempts = []
+        
+        solution_attempts.append(initial_draft_solution)
 
-    if not retrieved_docs:
-        print("No documents retrieved. Check the query processing.")
+        weave.save({f"{problem_name}_initial_draft_choose_best_attempt": initial_draft_solution})
+        logging.info(f"Initial draft choose_best attempt - Status: {initial_draft_solution.status}")
+        
+        # Check full input on initial solution
+        logging.info("> Checking full input on initial choose_best solution...")
+        initial_draft_full_input_result = solve_full_input(problem, initial_draft_solution, args)
+        weave.save({f"{problem_name}_initial_full_draft_choose_best__input_result": initial_draft_full_input_result})
+    
+    examples = []
+    if  args.retrive_flag:
+        #TO-DO: change retrival logic 
+        # Use the generated code as a query for retrieval
+        # Retrieve documents
+        print("\nAttempting to retrieve documents...")
+        retrieved_docs = retriever.retrieve(initial_draft_solution.code, k=500)
+
+        if not retrieved_docs:
+            print("No documents retrieved. Check the query processing.")
+        else:
+            print("\nRetrieved Documents:")
+            for i, doc in enumerate(retrieved_docs, 1):
+                print(f"\nDocument {i}:")
+                print(f"Code:\n{doc['cleaned_code'][:200]}...")  # Print first 200 characters of the code
+                print(f"Description: {doc['description'][:100]}...")  # Print first 100 characters of the description
+
+        reranked_docs = rerank_docs(problem, initial_draft_solution.code, retrieved_docs, top_k=3)
+
+        if not reranked_docs:
+            print("No documents after reranking. Check the reranking process.")
+        else:
+            print("\nReranked Documents:")
+            for i, doc in enumerate(reranked_docs, 1):
+                # Remove 'normalized_code' from each document
+                doc.pop('normalized_code', None)
+                
+                print(f"\nDocument {i}:")
+                print(f"Description:\n{doc['description']}")
+                print(f"\nCode:\n{doc['cleaned_code']}")
+                print(f"Similarity: {doc['similarity']:.4f}")
+
+
+        # Prepare examples for the prompt
+        examples = format_examples(reranked_docs)
+    
+        initial_solution = solve_problem(problem, analysis, use_images=args.use_images, timeout=args.timeout, examples = examples)
+        
+        solution_attempts.append(initial_solution)
+
+        weave.save({f"{problem_name}_initial_attempt": initial_solution})
+        logging.info(f"Initial attempt - Status: {initial_solution.status}")
+        
+        # Check full input on initial solution
+        logging.info("> Checking full input on initial solution...")
+        initial_full_input_result = solve_full_input(problem, initial_solution, args)
+        weave.save({f"{problem_name}_initial_full_input_result": initial_full_input_result})
     else:
-        print("\nRetrieved Documents:")
-        for i, doc in enumerate(retrieved_docs, 1):
-            print(f"\nDocument {i}:")
-            print(f"Code:\n{doc['cleaned_code'][:200]}...")  # Print first 200 characters of the code
-            print(f"Description: {doc['description'][:100]}...")  # Print first 100 characters of the description
-
-    reranked_docs = rerank_docs(problem, initial_draft_solution.code, retrieved_docs, top_k=3)
-
-    if not reranked_docs:
-        print("No documents after reranking. Check the reranking process.")
-    else:
-        print("\nReranked Documents:")
-        for i, doc in enumerate(reranked_docs, 1):
-            # Remove 'normalized_code' from each document
-            doc.pop('normalized_code', None)
-            
-            print(f"\nDocument {i}:")
-            print(f"Description:\n{doc['description']}")
-            print(f"\nCode:\n{doc['cleaned_code']}")
-            print(f"Similarity: {doc['similarity']:.4f}")
-
-
-    # Prepare examples for the prompt
-    examples = format_examples(reranked_docs)
-    
-    initial_solution = solve_problem(problem, analysis, use_images=args.use_images, timeout=args.timeout, examples = examples)
-    
-    # best_initial_solution_list = rank_solutions([initial_solution, initial_draft_solution])
-    # best_initial_solution = best_initial_solution_list[0]
-    
-    solution_attempts.append(initial_solution)
-
-    weave.save({f"{problem_name}_initial_attempt": initial_solution})
-    logging.info(f"Initial attempt - Status: {initial_solution.status}")
-    
-    # Check full input on initial solution
-    logging.info("> Checking full input on initial solution...")
-    initial_full_input_result = solve_full_input(problem, initial_solution, args)
-    weave.save({f"{problem_name}_initial_full_input_result": initial_full_input_result})
-    
+        initial_solution = initial_draft_solution
+        initial_full_input_result = initial_draft_full_input_result
     if not (initial_solution.status == 'success' and initial_solution.test_cases['matches']):
         current_solution = initial_solution
         for attempt in range(args.max_attempts):
@@ -176,6 +195,7 @@ def solve_full_input(problem: Problem, solution: SolutionAttempt, args: Args) ->
 
     result = {}
     input=problem.get_input()
+
     if not input:
         problem.save_code(solution.code)
         result["output_saved"] = True
@@ -242,22 +262,22 @@ async def main(args: Args):
     if args.weave_log:
         weave.init(f"hack-cup-{model_name.replace('/', '-')}")
 
-    retriever = Retriever("AlaaAhmed2444/rag_full")
+    # retriever = Retriever("AlaaAhmed2444/rag_full")
     
 
-
+    retriever = None
 
     all_results = {}
     for problem_name in args.problem_names:
         problem_results = await solve_single_problem(args, problem_name, retriever)
         all_results[problem_name] = problem_results
         
-        logging.info(f"Results for {problem_name}:")
-        logging.info(f"Initial solution status: {problem_results['initial_solution'].status}")
-        logging.info(f"Initial full input result: {problem_results['initial_full_input_result']}")
-        logging.info(f"Best solution status: {problem_results['best_solution'].status}")
-        logging.info(f"Best full input result: {problem_results['best_full_input_result']}")
-        logging.info("---")
+        # logging.info(f"Results for {problem_name}:")
+        # logging.info(f"Initial solution status: {problem_results['initial_solution'].status}")
+        # logging.info(f"Initial full input result: {problem_results['initial_full_input_result']}")
+        # logging.info(f"Best solution status: {problem_results['best_solution'].status}")
+        # logging.info(f"Best full input result: {problem_results['best_full_input_result']}")
+        # logging.info("---")
 
     weave.save(all_results, "all_problems_results")
 

@@ -1,4 +1,3 @@
-from dataclasses import dataclass
 from pathlib import Path
 import logging
 from dataclasses import dataclass, field
@@ -16,54 +15,20 @@ from models import get_vllm, get_embedding_model
 import time
 from retrieval_logic import *
 import asyncio
+from pydantic import BaseModel
+from pydantic.fields import Field
 vllm = get_vllm()
+from model import call_model, count_tokens
 
-@weave.op
-def count_tokens(text: str) -> int:
-    return len(vllm.tokenizer.encode(text))
 
-@dataclass
-class SolutionAttempt:
+
+class SolutionAttempt(BaseModel):
     code: str
     status: str
     test_cases: dict = None
     error: str = None
     execution_time: float = None
-@weave.op
-def call_model(messages, **kwargs):
-    # Preprocess messages to ensure they are in the correct format
-    processed_messages = []
-    for message in messages:
-        if isinstance(message, dict):
-            content = message['content']
-            role = message['role']
-        elif isinstance(message, str):
-            # Assume it's a user message if it's a string
-            content = message
-            role = "user"
-        else:
-            raise ValueError(f"Unexpected message format: {type(message)}")
 
-        if isinstance(content, list):
-            # Join text items and ignore image items
-            text_content = ' '.join(item['text'] for item in content if item.get('type') == 'text')
-            processed_messages.append({"role": role, "content": text_content})
-        else:
-            processed_messages.append({"role": role, "content": content})
-
-    # # Format messages for VLLM
-    # prompt = "\n".join([f"{msg['role'].capitalize()}: {msg['content']}" for msg in processed_messages])
-    # prompt += "\nAssistant:"
-
-    # Set up sampling parameters
-    sampling_params = SamplingParams(temperature=0.7, top_p=0.95, max_tokens=4000)
-
-    # Generate
-    vllm_instance = get_vllm()
-    outputs = vllm_instance.generate(processed_messages, sampling_params)
-    
-    # Extract and return the generated text
-    return outputs[0].outputs[0].text
 
 
 @weave.op
@@ -111,16 +76,12 @@ def self_reflection_on_problem(problem: Problem):
 
     return analysis
 
-
-
-
 @weave.op
 def generate_code(
     problem: Problem, 
     analysis,
     system_prompt: str, 
     prompt_template: str, 
-    prompt_template_without_examples:str,
     extract_prompt: str,
     use_images: bool = False,
     max_attempts: int = 3, 
@@ -142,20 +103,12 @@ def generate_code(
         system_prompt_tokens = count_tokens(system_prompt)
         if examples:
             system_prompt=system_prompt_with_examples.format(examples=examples)
-        formatted_prompt = prompt_template_without_examples.format(
-                    problem=problem.as_xml,
-                    analysis = analysis
+        formatted_prompt = prompt_template.format(
+                    problem=problem.as_xml
+                    # ,
+                    # analysis = analysis
                 )
-        # if not examples:
-        #     formatted_prompt = prompt_template_without_examples.format(
-        #             problem=problem.as_xml
-        #         )
-        #     prompt_template = prompt_template_without_examples
-        # else:
-        #     formatted_prompt = prompt_template.format(
-        #         problem=problem.as_xml,
-        #         examples=examples
-        #     )
+
         prompt_template_tokens = count_tokens(formatted_prompt)
         print(formatted_prompt)
         
@@ -283,27 +236,9 @@ def solve(input_data: str) -> str:
 The 'solve' function should take the input as a string and return the output as a string.
 """
 
-prompt_template_without_examples= """
-{problem}
-
-Problem Analysis:
-{analysis}
-
-Please provide only the Python code, enclosed in triple backticks, like this:
-
-```python
-# Your imports here
-
-def solve(input_data: str) -> str:
-    # Your code here
-"""
-
 prompt_template = """
 Problem Statement:
 {problem}
-
-Problem Analysis:
-{analysis}
 
 Please provide only the Python code, enclosed in triple backticks, like this:
 
@@ -339,8 +274,7 @@ def solve_problem(problem: Problem, analysis, use_images=False, timeout=60, exam
         problem, 
         analysis,
         system_prompt=system_prompt, 
-        prompt_template=prompt_template, 
-        prompt_template_without_examples = prompt_template_without_examples,
+        prompt_template=prompt_template,
         extract_prompt=extract_prompt, 
         use_images=use_images,
         examples=examples)
@@ -359,5 +293,8 @@ def solve_problem(problem: Problem, analysis, use_images=False, timeout=60, exam
     except Exception as e:
         return SolutionAttempt(code=code, status="runtime_error", error=str(e))
 
+
+
+    
 
     

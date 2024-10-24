@@ -4,11 +4,13 @@ from typing import Optional, List
 import weave
 from mini_lib.problem24 import Problem
 import json
-from one_shot import call_model, system_prompt, extract_prompt, system_prompt_with_examples
+from zero_shot import system_prompt, extract_prompt, system_prompt_with_examples
 import logging
 import re
-@dataclass
-class SolutionAttempt:
+from pydantic import BaseModel
+from model import call_model, count_tokens
+
+class SolutionAttempt(BaseModel):
     code: str
     status: str
     test_cases: dict = None
@@ -48,7 +50,9 @@ Second, list the keywords that describe the type of your errors from most genera
 Third, solve the problem again, step-by-step, based on your knowledge of the correct answer.
 G, create a list of detailed instructions to help you correctly solve this problem in the future.
 Be concise in your response; however, capture all of the essential information.
-
+"""
+    if examples:
+        reflection_system_prompt+="""
 You have previously solved the following problems in this competition:
 <examples>
 {examples}
@@ -126,7 +130,7 @@ async def improve_solution(problem: Problem, analysis, previous_solution: Soluti
     
 
     messages = [
-        {"role": "system", "content": system_prompt_with_examples.format(examples=examples)},
+        {"role": "system", "content": system_prompt_with_examples.format(examples=examples) if examples else system_prompt},
         {"role": "user", "content": """Problem Statement:
 {problem}"""},
         {"role": "assistant", "content": f"<incorrect_solution>{previous_solution.code}</incorrect_solution>"},

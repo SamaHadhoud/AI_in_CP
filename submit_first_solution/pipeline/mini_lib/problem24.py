@@ -92,7 +92,7 @@ class Problem:
         return Path(code_path)
 
     def save_output(self, output: str, outfile_: Optional[str] = None):
-        outfile_name = f"full_out.txt"
+        outfile_name = f"full_out_generated.txt"
 
         outfile = self.folder_path.joinpath(outfile_name) if outfile_ is None else Path(outfile_)
         outfile.write_text(output)
