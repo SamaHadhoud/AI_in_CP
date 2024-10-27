@@ -1,0 +1,218 @@
+<examples>
+<example1>
+<problem_statement>
+“An apple a day keeps the doctor away” is Steve’s motto. His other motto, “You can never have too much of a good thing,” holds true for both apples and mottos. Steve would like to eat two apples per day for the next \(N\) days, but with strict adherence to his third motto “Consistency is key.” Specifically, he’d like the sum of the two apple weights he eats over the next \(N\) days to be the same for each day.
+
+Steve has already purchased \(2*N-1\) apples, the \(i\)th of which weighs \(A_i\) ounces. He'd like to buy one more apple that's as light as possible to fulfill his goal. Steve can buy an apple of any positive integer weight in ounces from the store. Is it possible for him to reach his goal, and if so, what weight apple should he buy?
+
+
+*The above image depicts the solution to the first sample. Each day, Steve will eat two apples totalling \(7\) oz. Steve must buy a \(4\) oz apple to make this happen.*
+
+# Constraints
+\(1 \leq T \leq 70\)
+\(1 \leq N \leq 3*10^5\)
+The sum of \(N\) over all cases is at most \(600{,}000\)
+\(1 \leq A_i \leq  10^9\)
+
+# Input Format
+Input begins with an integer \(T\), the number of test cases. Each test case starts with a single integer \(N\). The next line contains \(2*N-1\) space-separated integers \(A_1, ..., A_{2*N - 1}\).
+
+# Output Format
+For the \(i\)th test case, print "`Case #i:` " followed a single integer, the smallest possible apple weight in ounces that Steve can buy so that he can eat two apples for the next \(N\) days and have the sum of apple weights be the same every day, or \(-1\) if doing so is impossible.
+
+# Sample Explanation
+
+In the first case, if Steve buys a \(4\) oz apple, he can group his apples as shown above. For this input, there's no way to succeed by buying any apple below \(4\) oz.
+
+In the second case, Steve can buy a \(7\) oz apple, and eat two apples totaling \(14\) oz each day.
+
+In the third case, any apple weight will suffice, so Steve will buy the lightest one possible.
+
+In the fourth case, no matter what weight apple Steve attempts to buy, it is impossible for him to achieve his goal.
+
+Please note, as demonstrated in the seventh case, that it's possible for the answer to exceed \(10^9\).
+</problem_statement>
+<sample_test_cases>
+<sample_input>
+7
+3
+6 3 1 2 5
+2
+7 7 7
+1
+1
+3
+1 9 1 1 4
+4
+1 9 1 1 4 9 9
+4
+1 9 10 1 4 6 9
+3
+1000000000 2 10 4 999999994
+</sample_input>
+<sample_output>
+Case #1: 4
+Case #2: 7
+Case #3: 1
+Case #4: -1
+Case #5: 6
+Case #6: -1
+Case #7: 1000000002
+</sample_output>
+<solution_logic>
+If there's only one element, we don't care what it is, a \(1\) will match it. 
+
+Otherwise, let's solve this backwards: instead of attempting to add a number in, we'll consider starting with a working solution and removing some number from it. Let's denote the daily sum of apple weights as \(K\). We can imagine having a sorted array of \(2*N\) elements where the first and last elements sum to \(K\), the second and second last sum \(K\), etc.
+
+Now, consider removing one element from the \(2*N\) sorted numbers. There are three cases:
+
+1. We removed the first element. Then, \(K\) is the new first element plus the second last element.
+2. We removed the last element. Then, \(K\) is the new last element plus the second element.
+3. We removed some element in the middle. Then, \(K\) is the sum of the first and last elements.
+
+With \(3\) candidates for \(K\), we'll pick the smallest that works. To check if a \(K\) works, we can use two pointers \(l\) and \(r\) moving from the outside inwards on the sorted input array. If the left and right values sum less than \(K\), we record a "skip" (noting the element that would've been removed) and increment \(l\). If it sums more, we decrement \(r\), else we advance both closer. In the end, \(K\) works if there is at most a single skip (and that removed element is positive).
+
+Running two pointers to check one candidate \(K\) takes \(\mathcal{O}(N)\) time, so the overall running time on \(3\) candidates is still \(\mathcal{O}(N)\).
+</solution_logic>
+<solution_code>
+def try_sum(arr: list, target_sum: int) -> int:
+    skipped = 0
+    left = 0
+    right = len(arr) - 1
+    result = target_sum // 2
+    
+    while left <= right:
+        curr_sum = arr[left] + arr[right]
+        if curr_sum == target_sum:
+            left += 1
+            right -= 1
+            continue
+            
+        skipped += 1
+        if curr_sum < target_sum:
+            result = target_sum - arr[left]
+            left += 1
+        else:
+            result = target_sum - arr[right]
+            right -= 1
+            
+    return result if skipped <= 1 and result > 0 else float('inf')
+
+def solve(input_data: str) -> str:
+    lines = input_data.strip().split('\n')
+    T = int(lines[0])
+    current_line = 1
+    result = []
+    
+    for t in range(1, T+1):
+        N = int(lines[current_line])
+        arr = list(map(int, lines[current_line + 1].split()))
+        arr.sort()  # Sort array
+        
+        # Try three possible cases
+        ans = min(
+            try_sum(arr, arr[1] + arr[-1]),  # Remove first
+            try_sum(arr, arr[0] + arr[-1]),  # Remove middle
+            try_sum(arr, arr[0] + arr[-2])   # Remove last
+        )
+        
+        result.append(f"Case #{t}: {-1 if ans == float('inf') else ans}")
+        current_line += 2
+        
+    return '\n'.join(result)
+</solution_code>
+</example1>
+<example2>
+<problem_statement>
+Morse code is a classic way to send messages, where each letter in an alphabet is substituted with a *codeword*: a unique sequence of dots and dashes. However, ignoring spaces, it's possible for a coded message to have multiple meanings. For example, "`.....--.-.-.-..-.-.-...-.--.`" can be interpreted as either "`HACKER CUP`" or "`SEE META RENT A VAN`":
+
+Beyond Morse code, a general set of codewords is an *unambiguous encoding* if any possible sequence of dots and dashes corresponds to either zero or exactly one sequence of codewords.
+
+Given one codeword \(C_1\) from a set of \(N\) distinct codewords, your task is to generate another \(N - 1\) codewords \(C_2, ..., C_N\) to yield an unambiguous encoding. It can be shown that an answer always exists. If there are multiple answers, you may print any one of them.
+
+
+# Constraints
+
+\(1 \le T \le 100\)
+\(2 \le N \le 100\)
+The length of \(C_1\) is between \(1\) and \(100\), inclusive.
+The length of each \(C_2, ..., C_N\) must be between \(1\) and \(\mathbf{200}\), inclusive.
+
+
+# Input Format
+
+Input begins with an integer \(T\), the number of test cases. For each case, there is first a line containing a single integer \(N\). Then, there is a line containing the codeword \(C_1\).
+
+
+# Output Format
+
+For the \(i\)th case, output a line containing only "`Case #i:`", followed by \(N - 1\) lines, the codewords \(C_2, ..., C_N\), one per line.
+
+
+# Sample Explanation
+
+In the first case, it can be shown that the codewords {"`.-.`", "`...`", "`---`"} are an unambiguous encoding. Any sequence of dots and dashes can be interpreted if and only if it has a length that's a multiple of 3, and can be broken up into instances of the three length-3 codewords.
+
+In the second case, it can be shown that the codewords {"`-`", "`...`", "`.-`", "`..-`"} are an unambiguous encoding. For instance, "`..`" has no possible interpretation, and "`.-...--`" can only be interpreted as "`.- ... - -`".
+
+In the third case, it can be shown that the codewords {"`..`", "`-`", "`.-`"} are an unambiguous encoding. For any sequence of dots and dashes:
+- every odd group of dots followed by a dash can only be interpreted as repeated "`..`"s followed by a final "`.-`"
+- every even group of dots followed by a dash can only be interpreted as repeated "`..`"s followed by a final "`-`"
+- every group of dots not followed by a dash (i.e. at the end of the sequence), is interpretable if and only if there is an even number of dots
+- this leaves only groups of dashes, interpreted only as repeated "`-`"s
+</problem_statement>
+<sample_test_cases>
+<sample_input>
+3
+3
+.-.
+4
+-
+3
+..
+</sample_input>
+<sample_output>
+Case #1:
+...
+---
+Case #2:
+...
+.-
+..-
+Case #3:
+-
+.-
+</sample_output>
+</sample_test_cases>
+<solution_logic>
+An unambiguous encoding is synonymous with a [uniquely decodable code].
+
+One approach is to use the fact that [prefix codes], i.e. codes where no whole codeword is a prefix of any other codeword, are uniquely decodable. For instance, if \(C_1\) starts with a dash, then output the prefix code [`.-`, `..-`, `...-`, etc.], else output the prefix code [`-.`, `--.`, `---.`, etc.].
+
+Doing so, \(C_1\) cannot possibly be a prefix of the other codewords (and vice versa) due to its differing first index. This yields a solution where \(|C_i| \le N\), though there are other approaches that take advantage of the generous length limit.
+</solution_logic>
+<solution_code>
+def solve(input_data: str) -> str:
+    lines = input_data.strip().split('\n')
+    T = int(lines[0])
+    current_line = 1
+    result = []
+    
+    for t in range(1, T+1):
+        N, C = lines[current_line].split()
+        N = int(N)
+        
+        result.append(f"Case #{t}:")
+        
+        # Generate strings for each length from 1 to N-1
+        for i in range(1, N):
+            # Create a string of opposite characters followed by C[0]
+            opposite = '.' if C[0] == '-' else '-'
+            result.append(opposite * i + C[0])
+            
+        current_line += 1
+        
+    return '\n'.join(result)
+</solution_code>
+</example2>
+</examples>

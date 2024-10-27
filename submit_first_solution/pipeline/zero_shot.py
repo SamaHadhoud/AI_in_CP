@@ -34,37 +34,37 @@ class SolutionAttempt(BaseModel):
 @weave.op
 def self_reflection_on_problem(problem: Problem):
     system_prompt = """
-    You are a world-class competitive programmer tasked with analyzing programming problems. Your role is to provide a clear, concise summary of the given problem's core requirements in bullet-point format. Follow these guidelines strictly:
+You are a world-class competitive programmer tasked with analyzing programming problems. Your role is to provide a clear, concise summary of the given problem's core requirements in bullet-point format. Follow these guidelines strictly:
 
-    1. Focus only on essential elements directly stated in the problem.
-    2. Provide only the information explicitly stated in the problem statement.
-    3. Do not infer, assume, or add any information not directly provided in the problem description.
-    4. Do not attempt to solve the problem or provide solution strategies.
-    5. Use the exact variable names, descriptions, units, and mathematical notation given in the problem.
-    6. Include all stated constraints, even if they seem obvious.
-    7. Provide only a high-level overview of what the problem asks, without adding any solution steps.
-    8. If any part of the problem is unclear or ambiguous, reflect this uncertainty in your analysis.
-    9. Ensure that all mathematical notations and symbols are accurately represented.
-    10. Pay special attention to units (like percentages) and include them in the variable descriptions.
-    11. Include any mathematical formulas or equations explicitly given in the problem statement as general rules, not specific to examples.
-    12. Clearly distinguish between the general problem description and any specific examples provided.
+1. Focus only on essential elements directly stated in the problem.
+2. Provide only the information explicitly stated in the problem statement.
+3. Do not infer, assume, or add any information not directly provided in the problem description.
+4. Do not attempt to solve the problem or provide solution strategies.
+5. Use the exact variable names, descriptions, units, and mathematical notation given in the problem.
+6. Include all stated constraints, even if they seem obvious.
+7. Provide only a high-level overview of what the problem asks, without adding any solution steps.
+8. If any part of the problem is unclear or ambiguous, reflect this uncertainty in your analysis.
+9. Ensure that all mathematical notations and symbols are accurately represented.
+10. Pay special attention to units (like percentages) and include them in the variable descriptions.
+11. Include any mathematical formulas or equations explicitly given in the problem statement as general rules, not specific to examples.
+12. Clearly distinguish between the general problem description and any specific examples provided.
 
-    Present your analysis in a concise bullet-point format, covering the following aspects:
-    - Main task or objective
-    - Key variables and their descriptions
-    - Constraints
-    - Input format
-    - Output format
-    - General formulas (if any)
-    - Logic flow (high-level description of what needs to be done)
+Present your analysis in a concise bullet-point format, covering the following aspects:
+- Main task or objective
+- Key variables and their descriptions
+- Constraints
+- Input format
+- Output format
+- General formulas (if any)
+- Logic flow (high-level description of what needs to be done)
     """
 
     user_prompt = """
-    Analyze the following programming problem and provide a concise summary of its core requirements in bullet-point format:
+Analyze the following programming problem and provide a concise summary of its core requirements in bullet-point format:
 
-    {problem}
+{problem}
 
-    Remember to focus only on the essential elements explicitly stated in the problem. Do not infer or add any information not directly provided in the problem description. Be specific and use exact wording, notation, and units from the problem statement. Clearly distinguish between the general problem description and any specific examples provided.
+Remember to focus only on the essential elements explicitly stated in the problem. Do not infer or add any information not directly provided in the problem description. Be specific and use exact wording, notation, and units from the problem statement. Clearly distinguish between the general problem description and any specific examples provided.
     """
     messages = [
         {"role": "system", "content": system_prompt},
@@ -105,8 +105,8 @@ def generate_code(
             system_prompt=system_prompt_with_examples.format(examples=examples)
         formatted_prompt = prompt_template.format(
                     problem=problem.as_xml
-                    # ,
-                    # analysis = analysis
+                    ,
+                    analysis = analysis
                 )
 
         prompt_template_tokens = count_tokens(formatted_prompt)
@@ -175,6 +175,13 @@ You are a world-class competitive programmer tasked with solving a programming p
 You will be provided with a problem statement, and you need to create a Python3 solution for it. 
 Your task it to develop a winning solution to the problem in Python3 programming language.
 
+Problem-Solving Strategy:
+1. First, analyze if the problem can be solved mathematically:
+   - Look for mathematical patterns or formulas that could provide direct solutions
+   - Consider number theory, combinatorics, or geometric approaches
+   - Check if the answer can be derived using mathematical properties instead of simulation
+2. If no mathematical solution exists, then proceed with algorithmic approaches
+3. For optimization problems, consider whether the answer follows a pattern or can be precomputed
 
 Key Requirements:
 1. Use the function signature: 'def solve(input_data: str) -> str:'
@@ -191,6 +198,15 @@ Best Practices:
 - Use appropriate data structures to optimize time and space complexity.
 - Write clean, readable code following PEP 8 style guidelines.
 - If applicable, consider using Python's built-in functions and libraries for optimization.
+
+Performance Optimization Guidelines:
+- Avoid nested loops when dealing with large input sizes (N > 10^4)
+- Consider using techniques like prefix sums, sliding windows, or hash maps to reduce time complexity
+- Use list comprehensions or generator expressions instead of explicit loops where appropriate
+- Leverage built-in functions like map(), filter(), zip() for better performance
+- Consider using collections.Counter, collections.defaultdict for counting and grouping operations
+- Use set or dictionary operations for O(1) lookups instead of list operations
+- When processing strings, consider using join() instead of += for concatenation
 
 You have previously solved the following problems in this competition:
 <examples>
@@ -211,6 +227,14 @@ You are a world-class competitive programmer tasked with solving a programming p
 You will be provided with a problem statement, and you need to create a Python3 solution for it. 
 Your task it to develop a winning solution to the problem in Python3 programming language.
 
+Problem-Solving Strategy:
+1. First, analyze if the problem can be solved mathematically:
+   - Look for mathematical patterns or formulas that could provide direct solutions
+   - Consider number theory, combinatorics, or geometric approaches
+   - Check if the answer can be derived using mathematical properties instead of simulation
+2. If no mathematical solution exists, then proceed with algorithmic approaches
+3. For optimization problems, consider whether the answer follows a pattern or can be precomputed
+
 Key Requirements:
 1. Use the function signature: 'def solve(input_data: str) -> str:'
 2. Implement an algorithm that correctly solves all aspects of the problem, including edge cases.
@@ -227,6 +251,15 @@ Best Practices:
 - Write clean, readable code following PEP 8 style guidelines.
 - If applicable, consider using Python's built-in functions and libraries for optimization.
 
+Performance Optimization Guidelines:
+- Avoid nested loops when dealing with large input sizes (N > 10^4)
+- Consider using techniques like prefix sums, sliding windows, or hash maps to reduce time complexity
+- Use list comprehensions or generator expressions instead of explicit loops where appropriate
+- Leverage built-in functions like map(), filter(), zip() for better performance
+- Consider using collections.Counter, collections.defaultdict for counting and grouping operations
+- Use set or dictionary operations for O(1) lookups instead of list operations
+- When processing strings, consider using join() instead of += for concatenation
+
 Remember: Your primary goal is to create a solution that is both correct and efficient, capable of handling all possible inputs within the problem's constraints.
 
 Create a Python program that solves the current problem. Your solution must include a function named 'solve' with the following signature:
@@ -239,6 +272,10 @@ The 'solve' function should take the input as a string and return the output as 
 prompt_template = """
 Problem Statement:
 {problem}
+
+Problem Analysis:
+{analysis}
+
 
 Please provide only the Python code, enclosed in triple backticks, like this:
 

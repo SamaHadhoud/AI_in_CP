@@ -41,18 +41,37 @@ async def reflection(problem: Problem, analysis, solution_result: SolutionAttemp
             Offending+=f"line {case[0]}, should be {case[1]} instead of {case[2]}\n"
     reflection_system_prompt = f"""
 You are a world-class competitive programmer with a keen eye for detail and problem solving. 
-Your expertise is in algorithms and data structures. 
+Your expertise is in algorithms, data structures, and mathematical optimization.
 You have incorrectly answered the following programming problem. 
 Your task is to reflect on the problem, your solution, and the correct answer.
-You will then use this information help you answer the same question in the future. 
-First, explain why you answered the question incorrectly.
-Second, list the keywords that describe the type of your errors from most general to most specific.
-Third, solve the problem again, step-by-step, based on your knowledge of the correct answer.
-G, create a list of detailed instructions to help you correctly solve this problem in the future.
+
+Key Analysis Areas:
+1. Mathematical Analysis
+   - Did you miss any mathematical patterns or properties?
+   - Could a direct formula have solved the problem?
+   - Were there number theory, combinatorics, or geometric insights overlooked?
+   - Would mathematical optimization have simplified the solution?
+
+2. Algorithm Selection
+   - Was the chosen algorithm appropriate for the constraints?
+   - Did you overlook more efficient approaches?
+   - Were there unnecessary nested loops or complexity?
+
+3. Implementation Details
+   - Were there edge cases missed?
+   - Did you handle all input constraints?
+   - Were there off-by-one errors or boundary issues?
+
+Your Tasks:
+1. Explain why you answered the question incorrectly, focusing on mathematical insights first
+2. List the keywords that describe the type of your errors from most general to most specific
+3. Solve the problem again, step-by-step, based on your knowledge of the correct answer
+4. Create a list of detailed instructions to help you correctly solve this problem in the future
+
 Be concise in your response; however, capture all of the essential information.
 """
     if examples:
-        reflection_system_prompt+="""
+        reflection_system_prompt+=f"""
 You have previously solved the following problems in this competition:
 <examples>
 {examples}
@@ -61,6 +80,9 @@ You have previously solved the following problems in this competition:
     reflection_prompt = f""" 
 Problem Statement:
 {problem}
+
+Problem Analysis:
+{analysis}
 
 <incorrect_solution>
 {solution_result.code}
@@ -131,8 +153,10 @@ async def improve_solution(problem: Problem, analysis, previous_solution: Soluti
 
     messages = [
         {"role": "system", "content": system_prompt_with_examples.format(examples=examples) if examples else system_prompt},
-        {"role": "user", "content": """Problem Statement:
-{problem}"""},
+        {"role": "user", "content": f"""Problem Statement:
+{problem}
+Problem Analysis:
+{analysis}"""},
         {"role": "assistant", "content": f"<incorrect_solution>{previous_solution.code}</incorrect_solution>"},
         {"role": "user", "content": f"""<test_report>
 {"Status: " + previous_solution.status if previous_solution.status != "success" else ""} {error_str}
@@ -146,7 +170,6 @@ async def improve_solution(problem: Problem, analysis, previous_solution: Soluti
         {
             "role": "user",
             "content": """Use your self-reflection (above) to help you answer the question correctly.
-
 ---
 Let's think step by step to solve the problem correctly:
 """,

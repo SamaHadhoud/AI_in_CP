@@ -26,10 +26,14 @@ import asyncio
 class Args(simple_parsing.Serializable):
     problem_names: List[str] = field(default_factory=lambda:  [
 
-        # "subsonic_subway", "prime_subtractorization", "substantial_losses", "substitution_cipher", "wildcard_submissions"])
+        # "Prime Subtractorization", "Subsonic Subway", "Substantial Losses", "Substitution Cipher", "Wildcard Submissions"])
         # "Cottontail Climb (Part 1)", "Cottontail Climb (Part 2)"])
-        "Line by Line","Walk the Line", 
-        "Fall in Line", "Line of Delivery (Part 1)", "Line of Delivery (Part 2)"])
+        # "Walk the Line"
+        # , 
+        # "Line by Line",
+        # "Fall in Line", 
+        "Line of Delivery (Part 1)", "Line of Delivery (Part 2)"
+        ])
         
         # "cheeseburger_corollary_ch1", 
         # "cheeseburger_corollary_ch2", "dim_sum_delivery", "two_apples_a_day", "road_to_nutella"])
@@ -39,6 +43,8 @@ class Args(simple_parsing.Serializable):
         
         # "back_in_black_ch1", "back_in_black_ch2", "today_is_gonna_be_a_great_day", "bohemian_rap-sody"] ) # list of problems to solve
     # folder_path: Path = Path("./dataset/2023/practice/")
+    problem_letters: List[str] = field(default_factory=lambda:  ["a", "b", "c", "d", "d"])
+    problem_round: str= "practice"
     folder_path: Path = Path("./2024-practice/")
     weave_log: bool = True
     use_images: bool = False
@@ -47,17 +53,25 @@ class Args(simple_parsing.Serializable):
     timeout: int = 30
     max_attempts: int = 20
     retrive_flag: bool = False
-    choose_best_flag: bool = True
+    choose_best_flag: bool = False
     cache_directory: Path = Path("data/cache")
 
+async def get_few_shot_cot_examples(problem_letter, problem_round):
+    filename = f"./examples/{problem_round}_{problem_letter}.txt"
+    with open(filename, 'r') as f:
+        content = f.read()
+    return content
 @weave.op()
-async def solve_single_problem(args: Args, problem_name: str, retriever):
+async def solve_single_problem(args: Args, problem_name: str, problem_letter, retriever):
     """Solve a single problem and log results in Weave."""
+    # examples = await get_few_shot_cot_examples(problem_letter, args.problem_round)
+    examples = ""
+
     problem = Problem.from_name(problem_name, args.folder_path)
     logging.info(f"Solving problem: {problem_name}")
 
     analysis = self_reflection_on_problem(problem.as_xml)
-    initial_draft_solution = solve_problem(problem, analysis, use_images=args.use_images, timeout=args.timeout)
+    initial_draft_solution = solve_problem(problem, analysis, use_images=args.use_images, timeout=args.timeout, examples = examples)
 
     solution_attempts = []
     
@@ -72,7 +86,7 @@ async def solve_single_problem(args: Args, problem_name: str, retriever):
     weave.save({f"{problem_name}_initial_full_draft_input_result": initial_draft_full_input_result})
     
     if(args.choose_best_flag):
-        initial_draft_solution = solve_problem_choose_best(problem, analysis, use_images=args.use_images, timeout=args.timeout)
+        initial_draft_solution = solve_problem_choose_best(problem, analysis, use_images=args.use_images, timeout=args.timeout, examples=examples )
 
         solution_attempts = []
         
@@ -86,7 +100,7 @@ async def solve_single_problem(args: Args, problem_name: str, retriever):
         initial_draft_full_input_result = solve_full_input(problem, initial_draft_solution, args)
         weave.save({f"{problem_name}_initial_full_draft_choose_best__input_result": initial_draft_full_input_result})
     
-    examples = []
+    
     if  args.retrive_flag:
         #TO-DO: change retrival logic 
         # Use the generated code as a query for retrieval
@@ -259,8 +273,9 @@ async def main(args: Args):
     if not args.cache_directory.exists():
         args.cache_directory.mkdir(parents=True)
 
+    x = "choose_best-" if args.choose_best_flag else ""
     if args.weave_log:
-        weave.init(f"hack-cup-{model_name.replace('/', '-')}")
+        weave.init(f"with-analysis-hack-cup-{x}{model_name.replace('/', '-')}")
 
     # retriever = Retriever("AlaaAhmed2444/rag_full")
     
@@ -268,8 +283,8 @@ async def main(args: Args):
     retriever = None
 
     all_results = {}
-    for problem_name in args.problem_names:
-        problem_results = await solve_single_problem(args, problem_name, retriever)
+    for idx, problem_name in enumerate(args.problem_names):
+        problem_results = await solve_single_problem(args, problem_name, args.problem_letters[idx], retriever)
         all_results[problem_name] = problem_results
         
         # logging.info(f"Results for {problem_name}:")

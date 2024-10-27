@@ -8,7 +8,7 @@ from mini_lib.utils import maybe_remove_backticks, check_solution, setup_logger,
 import re, time
 import weave
 import logging
-from zero_shot import system_prompt, SolutionAttempt
+from zero_shot import system_prompt, SolutionAttempt, system_prompt_with_examples
 import yaml
 
 class Solution(BaseModel):
@@ -149,10 +149,15 @@ class SolutionParser:
         )
     
 @weave.op
-def get_all_possible_solutions(problem: Problem, analysis):
+def get_all_possible_solutions(problem: Problem, analysis, examples):
     system_prompt = """
 You are a world-class competitive programmer and mathematical theorist analyzing code contest problems.
 Your expertise spans algorithms, data structures, and mathematical optimization.
+
+You have previously solved the following problems in this competition:
+<examples>
+{examples}
+</examples>
 
 CORE RESPONSIBILITIES:
 Generate ALL viable solutions considering different paradigms like:
@@ -313,7 +318,7 @@ Consider every viable approach, ensuring each is distinct and valuable.
 """
 
     messages = [
-        {"role": "system", "content": system_prompt},
+        {"role": "system", "content": system_prompt.format(examples = examples)},
         {"role": "user", "content": user_prompt.format(problem=problem)}
     ]
     parser = SolutionParser()
@@ -330,7 +335,7 @@ Consider every viable approach, ensuring each is distinct and valuable.
 
 
 @weave.op
-def select_best_solution(solutions: str, problem: Problem, analysis: str) -> Solution:
+def select_best_solution(solutions: str, problem: Problem, analysis: str, examples) -> Solution:
     # Format solutions list nicely
     solutions_text = "\n\n".join([
         f"Solution {i+1}:\n"
@@ -347,8 +352,14 @@ def select_best_solution(solutions: str, problem: Problem, analysis: str) -> Sol
     ])
 
     system_prompt = """
-    You are a senior competitive programming judge. Given multiple possible solutions to a problem,
-    your task is to select the best solution based on the following criteria:
+    You are a senior competitive programming judge. 
+
+    You have previously solved the following problems in this competition:
+    <examples>
+    {examples}
+    </examples>
+        
+    Given multiple possible solutions to a problem, your task is to select the best solution based on the following criteria:
 
     1. Correctness: 
        - Mathematical correctness and proof validity
@@ -394,7 +405,7 @@ def select_best_solution(solutions: str, problem: Problem, analysis: str) -> Sol
     """
 
     messages = [
-        {"role": "system", "content": system_prompt},
+        {"role": "system", "content": system_prompt.format(examples=examples)},
         {"role": "user", "content": user_prompt.format(
             problem=problem,
             # analysis=analysis,
@@ -432,6 +443,9 @@ def generate_code_from_best_solution(
     max_attempts: int = 3, 
     use_images: bool = False,
     examples: str = "") -> str:
+
+    if examples:
+        system_prompt=system_prompt_with_examples.format(examples=examples)
     
     logging.info(f"Generating code solution for: {problem.name} using solution: {selected_solution.name}")
 
@@ -612,10 +626,10 @@ def solve(input_data: str) -> str:
 
 @weave.op
 def solve_problem_choose_best(problem: Problem, analysis, use_images=False, timeout=60, examples="") -> dict:
-    solutions = get_all_possible_solutions(problem, analysis)
+    solutions = get_all_possible_solutions(problem, analysis, examples)
 
     # Select best solution
-    best_solution = select_best_solution(solutions, problem, analysis)
+    best_solution = select_best_solution(solutions, problem, analysis, examples)
 
     code = generate_code_from_best_solution(
         problem, 
