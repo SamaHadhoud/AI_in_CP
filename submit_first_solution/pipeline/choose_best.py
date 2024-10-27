@@ -150,15 +150,18 @@ class SolutionParser:
     
 @weave.op
 def get_all_possible_solutions(problem: Problem, analysis, examples):
-    system_prompt = """
-You are a world-class competitive programmer and mathematical theorist analyzing code contest problems.
-Your expertise spans algorithms, data structures, and mathematical optimization.
-
-You have previously solved the following problems in this competition:
+    if examples:
+        examples_str = f"""You have previously solved the following problems in this competition:
 <examples>
 {examples}
 </examples>
-
+        """
+    else:
+        examples_str = ""
+    system_prompt = f"""
+You are a world-class competitive programmer and mathematical theorist analyzing code contest problems.
+Your expertise spans algorithms, data structures, and mathematical optimization.
+{examples_str}
 CORE RESPONSIBILITIES:
 Generate ALL viable solutions considering different paradigms like:
 □ Brute force approaches with optimizations
@@ -307,19 +310,19 @@ solutions:
 """
 
     user_prompt = """
-PROBLEM ANALYSIS REQUEST
-
 Given Problem:
 {problem.as_xml}
 
+Problem Analysis:
+{analysis}
 
 Generate ALL possible comprehensive solutions following the specified YAML format.
 Consider every viable approach, ensuring each is distinct and valuable.
 """
 
     messages = [
-        {"role": "system", "content": system_prompt.format(examples = examples)},
-        {"role": "user", "content": user_prompt.format(problem=problem)}
+        {"role": "system", "content": system_prompt},
+        {"role": "user", "content": user_prompt.format(problem=problem, analysis =analysis)}
     ]
     parser = SolutionParser()
     try:
@@ -350,65 +353,71 @@ def select_best_solution(solutions: str, problem: Problem, analysis: str, exampl
         f"Labels: {', '.join(sol.labels)}\n"
         for i, sol in enumerate(solutions)
     ])
+    if examples:
+        examples_str = f"""You have previously solved the following problems in this competition:
+<examples>
+{examples}
+</examples>
+        """
+    else:
+        examples_str = ""
 
-    system_prompt = """
-    You are a senior competitive programming judge. 
+    system_prompt = f"""
+You are a senior competitive programming judge. 
+{examples_str}
+Given multiple possible solutions to a problem, your task is to select the best solution based on the following criteria:
 
-    You have previously solved the following problems in this competition:
-    <examples>
-    {examples}
-    </examples>
-        
-    Given multiple possible solutions to a problem, your task is to select the best solution based on the following criteria:
+1. Correctness: 
+    - Mathematical correctness and proof validity
+    - Numerical stability and accuracy where applicable
+2. Mathematical Efficiency:
+    - Optimality of mathematical approach
+    - Elegance of mathematical solution
+3. Implementation Efficiency:
+    - Time and space complexity with mathematical justification
+    - Practical performance considerations
+4. Robustness:
+    - Numerical robustness for mathematical operations
+    - Handling of edge cases and special values
+5. Clarity:
+    - Clear explanation of mathematical concepts
+    - Well-documented derivations and proofs
 
-    1. Correctness: 
-       - Mathematical correctness and proof validity
-       - Numerical stability and accuracy where applicable
-    2. Mathematical Efficiency:
-       - Optimality of mathematical approach
-       - Elegance of mathematical solution
-    3. Implementation Efficiency:
-       - Time and space complexity with mathematical justification
-       - Practical performance considerations
-    4. Robustness:
-       - Numerical robustness for mathematical operations
-       - Handling of edge cases and special values
-    5. Clarity:
-       - Clear explanation of mathematical concepts
-       - Well-documented derivations and proofs
-
-    Remember: Evaluate both theoretical mathematical correctness and practical implementation aspects.
+Remember: Evaluate both theoretical mathematical correctness and practical implementation aspects.
     """
 
     user_prompt = """
-    Problem Statement:
-    {problem.as_xml}
+Problem Statement:
+{problem.as_xml}
 
-    Available Solutions:
-    {solutions_text}
+Problem Analysis:
+{analysis}
 
-    Please analyze these solutions and select the best one. Explain your choice in YAML format:
+Available Solutions:
+{solutions_text}
 
-    selected_solution:
-      name: <solution_name>
-      mathematical_analysis: |
-        - Mathematical concepts utilized
-        - Correctness of proofs and derivations
-        - Numerical considerations
-      rationale: <explanation of why this is the best choice>
-      key_advantages:
-        - <advantage 1>
-        - <advantage 2>
-      potential_risks:
-        - <risk 1>
-        - <risk 2>
+Please analyze these solutions and select the best one. Explain your choice in YAML format:
+
+selected_solution:
+    name: <solution_name>
+    mathematical_analysis: |
+    - Mathematical concepts utilized
+    - Correctness of proofs and derivations
+    - Numerical considerations
+    rationale: <explanation of why this is the best choice>
+    key_advantages:
+    - <advantage 1>
+    - <advantage 2>
+    potential_risks:
+    - <risk 1>
+    - <risk 2>
     """
 
     messages = [
         {"role": "system", "content": system_prompt.format(examples=examples)},
         {"role": "user", "content": user_prompt.format(
             problem=problem,
-            # analysis=analysis,
+            analysis=analysis,
             solutions_text=solutions_text
         )}
     ]
@@ -623,21 +632,116 @@ def solve(input_data: str) -> str:
 
 
 
+@weave.op()
+def try_solution(problem: Problem, code: str, timeout: int) -> SolutionAttempt:
+    """Try a solution and return a SolutionAttempt object."""
+    input_data, output = problem.sample_input, problem.sample_output
+    
+    try:
+        start_time = time.time()
+        generated_output = run(code, input=input_data, timeout=timeout)
+        execution_time = time.time() - start_time
+        test_cases = check_solution(output, generated_output)
+        return SolutionAttempt(code=code, status="success", test_cases=test_cases, execution_time=execution_time)
+    except TimeoutException:
+        return SolutionAttempt(code=code, status="timeout", error="Execution time limit exceeded")
+    except Exception as e:
+        return SolutionAttempt(code=code, status="runtime_error", error=str(e))
+
+from typing import List
+import ast
+
+class CodeAnalyzer(ast.NodeVisitor):
+    def __init__(self):
+        self.loop_depth = 0
+        self.max_loop_depth = 0
+        self.loop_count = 0
+        
+    def visit_For(self, node):
+        self.loop_count += 1
+        self.loop_depth += 1
+        self.max_loop_depth = max(self.max_loop_depth, self.loop_depth)
+        self.generic_visit(node)
+        self.loop_depth -= 1
+        
+    def visit_While(self, node):
+        self.loop_count += 1
+        self.loop_depth += 1
+        self.max_loop_depth = max(self.max_loop_depth, self.loop_depth)
+        self.generic_visit(node)
+        self.loop_depth -= 1
+
+def analyze_code_complexity(code: str) -> tuple:
+    try:
+        tree = ast.parse(code)
+        analyzer = CodeAnalyzer()
+        analyzer.visit(tree)
+        return analyzer.max_loop_depth, analyzer.loop_count
+    except:
+        return float('inf'), float('inf')  # Return high values for invalid code
 
 @weave.op
-def solve_problem_choose_best(problem: Problem, analysis, use_images=False, timeout=60, examples="") -> dict:
+def rank_solutions(solutions: List[SolutionAttempt]) -> List[SolutionAttempt]:
+    def solution_score(solution: SolutionAttempt) -> tuple:
+        # Analyze code complexity
+        max_depth, loop_count = analyze_code_complexity(solution.code)
+        
+        # Base score based on solution status
+        if solution.status == "success":
+            correctness_score = 1000
+            time_score = -solution.execution_time
+            test_case_score = solution.test_cases['len_passed_cases'] * 100
+        elif solution.status == "timeout":
+            return (-1, 0, 0, 0, 0)
+        else:  # runtime_error
+            return (-2, 0, 0, 0, 0)
+        
+        # Complexity penalties
+        depth_penalty = max_depth * 50  # Higher penalty for nested loops
+        loop_penalty = loop_count * 20  # Smaller penalty for total number of loops
+        
+        # Final score components (ordered by priority)
+        return (
+            correctness_score,
+            test_case_score,
+            -depth_penalty,
+            -loop_penalty,
+            time_score
+        )
+    
+    return sorted(solutions, key=solution_score, reverse=True)
+
+@weave.op
+def solve_problem_choose_best(problem: Problem, analysis, use_images=False, timeout=60, examples="", heurstic_compare = True) -> dict:
     solutions = get_all_possible_solutions(problem, analysis, examples)
-
-    # Select best solution
-    best_solution = select_best_solution(solutions, problem, analysis, examples)
-
-    code = generate_code_from_best_solution(
+    
+    solutions_codes = [generate_code_from_best_solution(
         problem, 
         analysis,
-        selected_solution=best_solution,
+        selected_solution=solution,
         system_prompt=system_prompt, 
         use_images=use_images,
-        examples=examples)
+        examples=examples) for solution in solutions]
+
+    if(heurstic_compare):
+
+        solutions_results = [try_solution(problem, code, timeout) for code in solutions_codes]
+
+        solutions_ranked = rank_solutions(solutions_results)
+        
+        code = solutions_ranked[0].code
+    else:
+
+        # Select best solution
+        best_solution = select_best_solution(solutions, problem, analysis, examples)
+
+        code = generate_code_from_best_solution(
+            problem, 
+            analysis,
+            selected_solution=best_solution,
+            system_prompt=system_prompt, 
+            use_images=use_images,
+            examples=examples)
     print("**************************************************************")
     print(code)
 
@@ -652,6 +756,9 @@ def solve_problem_choose_best(problem: Problem, analysis, use_images=False, time
         return SolutionAttempt(code=code, status="timeout", error= "Execution time limit exceeded")
     except Exception as e:
         return SolutionAttempt(code=code, status="runtime_error", error=str(e))
+
+
+
 if __name__=="__main__":
     response="""
 ```yaml

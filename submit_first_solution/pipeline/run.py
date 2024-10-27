@@ -26,12 +26,13 @@ import asyncio
 class Args(simple_parsing.Serializable):
     problem_names: List[str] = field(default_factory=lambda:  [
 
-        # "Prime Subtractorization", "Subsonic Subway", "Substantial Losses", "Substitution Cipher", "Wildcard Submissions"])
+        # "Prime Subtractorization", 
+        # "Subsonic Subway", "Substantial Losses", "Substitution Cipher", "Wildcard Submissions"])
         # "Cottontail Climb (Part 1)", "Cottontail Climb (Part 2)"])
-        # "Walk the Line"
-        # , 
-        # "Line by Line",
-        # "Fall in Line", 
+        "Walk the Line"
+        , 
+        "Line by Line",
+        "Fall in Line", 
         "Line of Delivery (Part 1)", "Line of Delivery (Part 2)"
         ])
         
@@ -45,7 +46,7 @@ class Args(simple_parsing.Serializable):
     # folder_path: Path = Path("./dataset/2023/practice/")
     problem_letters: List[str] = field(default_factory=lambda:  ["a", "b", "c", "d", "d"])
     problem_round: str= "practice"
-    folder_path: Path = Path("./2024-practice/")
+    folder_path: Path = Path("./2024-practice")
     weave_log: bool = True
     use_images: bool = False
     save_output: bool = True
@@ -53,7 +54,8 @@ class Args(simple_parsing.Serializable):
     timeout: int = 30
     max_attempts: int = 20
     retrive_flag: bool = False
-    choose_best_flag: bool = False
+    choose_best_flag: bool = True
+    heurstic_compare:bool = True
     cache_directory: Path = Path("data/cache")
 
 async def get_few_shot_cot_examples(problem_letter, problem_round):
@@ -86,7 +88,7 @@ async def solve_single_problem(args: Args, problem_name: str, problem_letter, re
     weave.save({f"{problem_name}_initial_full_draft_input_result": initial_draft_full_input_result})
     
     if(args.choose_best_flag):
-        initial_draft_solution = solve_problem_choose_best(problem, analysis, use_images=args.use_images, timeout=args.timeout, examples=examples )
+        initial_draft_solution = solve_problem_choose_best(problem, analysis, use_images=args.use_images, timeout=args.timeout, examples=examples, heurstic_compare = args.heurstic_compare)
 
         solution_attempts = []
         
@@ -274,6 +276,8 @@ async def main(args: Args):
         args.cache_directory.mkdir(parents=True)
 
     x = "choose_best-" if args.choose_best_flag else ""
+    if args.choose_best_flag and args.heurstic_compare:
+        x+="heurstic_compare-"
     if args.weave_log:
         weave.init(f"with-analysis-hack-cup-{x}{model_name.replace('/', '-')}")
 

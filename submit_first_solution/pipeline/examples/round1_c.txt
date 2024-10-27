@@ -1,0 +1,637 @@
+<example1>
+<problem_statement>
+*This problem shares some similarities with C2, with key differences in bold.*
+
+A friend who works at Metal Platforms Inc just lent you a curious puzzle, offering you tickets to a metal concert if you can solve it.
+
+The puzzle consists of \(N\) buttons in a row, numbered from \(1\) to \(N\). The initial state of button \(i\) is white if \(S_i = 1\), or black if \(S_i = 0\). Pressing a button \(k\) toggles the state of itself as well as every \(k\)th button. Your friend challenges you to return the puzzle to him with all buttons back in black.
+
+Life is hard enough without siblings pushing your buttons. Unfortunately, your brother has taken the puzzle and will push \(Q\) buttons sequentially, the \(i\)th being button \(B_i\). 
+
+After your brother **has pushed all \(Q\) buttons**, you'd like to know the minimum number of button presses required to turn all the buttons black.
+
+**Constraints**
+
+\(1 \le T \le 70\)
+\(1 \le N \le 4{,}000{,}000\)
+\(1 \le Q \le 4{,}000{,}000\)
+
+The sum of \(N\) and \(Q\) over all cases will be at most \(9{,}000{,}000\).
+
+**Input Format**
+
+Input begins with a single integer \(T\), the number of test cases. For each case, there is first a line containing a single integer \(N\). Then, there is a line containing a bitstring \(S\) of length \(N\). Then, there is a line containing a single integer \(Q\). \(Q\) lines follow, the \(i\)th of which contains a single integer \(B_i\).
+
+**Output Format**
+
+For the \(i\)th test case, output a single line containing `"Case #i: "` followed by a single integer, the number of button presses needed to turn all buttons black **after all \(Q\) button presses.**
+
+**Sample Explanation**
+
+The first sample case is depicted below. After your brother presses the first button, the state of the puzzle is \(0101\). The best strategy is to press the second button, turning all lights off.
+
+<photo_description>
+Puzzle Description:
+
+    The puzzle consists of NN buttons in a row, each initially either white (1) or black (0).
+    Pressing a button toggles its state and the states of its two neighbors.
+
+Scenario Illustration:
+
+    Initial State: The buttons are in the configuration [1, 0, 1, 0].
+    After First Press (Button 1): The state changes to [0, 1, 0, 1] after toggling the first button.
+    After Second Press (Button 2): Pressing the second button changes the state to [0, 0, 0, 0], turning all buttons black.
+</photo_description>
+
+In the second case, the puzzle starts as \(0001\), and after each button press becomes \(0100\), \(0110\), \(0011\), and \(0010\) respectively. Pressing only the third button will return the puzzle to all zeros.
+</problem_statement>
+<sample_test_cases>
+<sample_input>
+5
+4
+1010
+1
+1
+4
+0001
+4
+2
+3
+2
+4
+7
+0101101
+8
+1
+3
+2
+6
+7
+4
+2
+5
+7
+0101100
+1
+7
+7
+1111111
+1
+1
+</sample_input>
+<sample_output>
+Case #1: 1
+Case #2: 1
+Case #3: 4
+Case #4: 4
+Case #5: 0
+</sample_output>
+</sample_test_cases>
+<solution_logic>
+First, note that pressing any button twice is equivalent to doing nothing. We can read in all \(Q\) button presses into a boolean array \(P_{1..N}\), where \(P_i\) stores for button \(i\) the total number of presses modulo \(2\).
+
+Next, we'll need to apply this array of presses to our original array \(S_{1..N}\). Naively, it would look something like:
+```
+for (int i = 1; i <= N; i++) {
+    if (P[i]) {
+        for (int j = i; j <= N; j += i) {
+            S[j] ^= 1;
+        }
+    }
+}
+```
+
+For \(i = 1\), the inner loop runs for \(N\) steps. For \(i = 2\), the inner loop runs for \(N / 2\) steps. So forth, until a total of \(N + \frac{N}{2} + \frac{N}{3} + ... + \frac{N}{N}\) steps. Factoring out \(N\), we get \(N*(1 + \frac{1}{2} + ... + \frac{1}{N})\). The second factor is the [harmonic series](https://en.wikipedia.org/wiki/Harmonic_series_(mathematics)), which converges to roughly \(\log_2 (N)\). Thus, such a nested loop would only take \(\mathcal{O}(N \log N)\) time.
+
+After we've applied the presses to \(S\), we now need to convert every \(1\) to \(0\) with the minimum number of button presses. Consider the following greedy algorithm:
+
+```
+int num_presses = 0;
+for (int i = 1; i <= N; i++) {
+    if (S[i]) {
+      num_presses++;
+      for (int j = i; j <= N; j += i) {
+        S[j] ^= 1;
+      }
+    }
+}
+```
+
+We scan from left to right, and each time we see a \(1\), we'll simply press the button and apply the changes to the rest of the array. In fact, this is not a greedy method, but the only method we can convert all the buttons to \(0\). A button can only be changed by pressing itself, or some button before it. If it were not optimal to clear the leftmost \(1\) by pressing it directly, then we would have to press another \(1\) before it, which contradicts the former \(1\) being leftmost.
+
+The time complexity of this approach algorithm is analyzed similarly as the original application of the \(Q\) button presses, so the overall running time is \(\mathcal{O}(N \log N)\).
+</solution_logic>
+<solution_code>
+def solve(input_data: str) -> str:
+    lines = input_data.strip().split('\n')
+    current_line = 0
+    T = int(lines[current_line])
+    current_line += 1
+    result = []
+    
+    for t in range(1, T+1):
+        N = int(lines[current_line])
+        current_line += 1
+        
+        # Convert color string to boolean array (white = True)
+        white = [False] + [c == '1' for c in lines[current_line]]
+        current_line += 1
+        
+        Q = int(lines[current_line])
+        current_line += 1
+        
+        # Track button presses from previous operations
+        press = [False] * (N + 1)
+        for b in map(int, lines[current_line].split()):
+            press[b] = not press[b]  # XOR with 1
+        current_line += 1
+            
+        # Apply previous presses
+        for i in range(1, N + 1):
+            if press[i]:
+                for j in range(i, N + 1, i):
+                    white[j] = not white[j]
+                    
+        # Convert remaining white tiles to black greedily
+        num_presses = 0
+        for i in range(1, N + 1):
+            if white[i]:
+                num_presses += 1
+                for j in range(i, N + 1, i):
+                    white[j] = not white[j]
+                    
+        result.append(f"Case #{t}: {num_presses}")
+        
+    return '\n'.join(result)
+</solution_code>
+</example1>
+<example2>
+<problem_statement>
+There's a famous saying about what to do when life gives you lemons. As a traveling lemonade salesman who's never been given any lemons, you sadly can't relate. You must shamefully concoct your lemonade from store-bought powder with your back turned to the world, lest someone see your dirty secret.
+
+Your sales route can be mapped out on a Cartesian plane with \(N\) houses, the \(i\)th of which is at coordinates \((X_i, Y_i)\). Your journey starts at house \(1\), the leftmost house, and ends at house \(N\), the rightmost house. Along the way, you may stop at zero or more other houses to sell lemonade.
+
+You may only stop at a house \(h\) if:
+
+1) standing at house \(h\), there exists some direction you can face in which all other houses are *strictly more behind you than they are in front of you* (formally, if there exists a [half-plane](https://mathworld.wolfram.com/Half-Plane.html#:~:text=A%20half%2Dplane%20is%20a,called%20an%20open%20half%2Dplane.) containing only house \(h\)), and
+2) house \(h\) is at most Euclidean distance \(D\) from the previous house you were at.
+
+Your brand image is hurt if you go too long without selling lemonade. The *brand damage* incurred by traveling from one house to another is the larger of \(K\) and the squared Euclidean distance between them. Formally, if your journey consists of \(M\) \((2 \le M \le N)\) houses with the \(i\)th being house \(H_i\) \((H_1 = 1, H_M = N)\), the total brand damage is:
+
+\[\sum_{i=1}^{M-1} \max(K, (X_{H_i} - X_{H_{i + 1}})^2 + (Y_{H_i} - Y_{H_{i + 1}})^2)\]
+
+Is it possible to make the journey? If so, what is the minimum possible total brand damage to do so? Note that the answer may be large, but will fit in a 64-bit integer.
+
+
+# Constraints
+
+\(1 \le T \le 90\)
+\(2 \le N \le 1{,}000{,}000\)
+\(0 \le K, D \le 10^9\)
+\(0 \le X_i, Y_i \le 1{,}000{,}000\)
+\(X_1\) is strictly less than all other \(X_i\).
+\(X_N\) is strictly greater than all other \(X_i\).
+All \((X_i, Y_i)\) are distinct within a given test case.
+
+The sum of \(N\) across all test cases is at most \(4{,}000{,}000\).
+There are at most \(15\) test cases in which \(N > 5{,}000\).
+
+
+# Input Format
+
+Input begins with a single integer \(T\), the number of test cases. For each test case, there is first a line containing three space-separated integers \(N\), \(K\), and \(D\). Then, \(N\) lines follow, the \(i\)th of which contains two space-separated integers \(X_i\) and \(Y_i\).
+
+
+# Output Format
+
+For the \(i\)th test case, print a line containing `"Case #i: "` followed a single integer, the minimum total brand damage that must be incurred to make the journey, or \(-1\) if it's impossible to do so.
+
+
+# Sample Explanation
+
+The first three sample cases are depicted below, with the optimal paths given in blue.
+
+<photo_description>
+Sample Paths:
+    First Case: The path incurs a total brand damage of 115, adhering to the constraints K=25K=25 and D=8D=8. The optimal path avoids stopping at a house without a valid half-plane.
+    Second Case: Stopping at house (4,1)(4,1) is possible because a line can be drawn such that the half-plane contains only this house.
+    Third Case: It's impossible to proceed as no house is within D=7D=7 units from the starting point, making the journey infeasible.
+</photo_description>
+
+In the first case, going from one house to another takes at least \(K = 25\) brand damage and must not exceed a distance of \(D = 8\). The total brand damage is \(25+50+40 = 115\). Note that you cannot stop at house \((6, 7)\) because there is no direction you could face from there in which your back is at least slightly facing both house \((1,6)\) and \((11,8)\).
+
+In the second case, you can stop at house \((4, 1)\) because for instance, the line \(y = 0.3x - 0.2\) contains only \((4, 1)\), and the half-plane below it contains no other houses.
+
+In the third case, you cannot stop at house \((4, 1)\). There are no other houses within \(D=7\) units of your starting house, so it is not possible to reach the house at \((8, 2)\).
+</problem_statement>
+<sample_test_cases>
+<sample_input>
+5
+9 25 8
+0 5
+1 6
+6 3
+6 7
+3 4
+9 2
+2 1
+1 2
+11 8
+3 100 7
+0 0
+4 1
+7 2
+3 100 7
+0 0
+4 1
+8 2
+6 0 1000000000
+0 10
+2 5
+1 7
+7 4
+8 1
+10 0
+12 1600 2000
+0 30
+16 48
+36 57
+951 45
+397 63
+447 63
+185 16
+362 10
+432 9
+507 11
+643 16
+1000 30
+</sample_input>
+<sample_output>
+Case #1: 115
+Case #2: 200
+Case #3: -1
+Case #4: 56
+Case #5: 184654
+</sample_output>
+</sample_test_cases>
+
+<solution_logic>
+Another way to view the half-plane constraint is that you may only stop at points that are vertices of the convex hull of all \(N\) points, which can be computed in \(\mathcal{O}(N \log N)\) time.
+
+There are many incorrect approaches which are broken by the samples. For instance, it is not always optimal to travel across either the upper or lower hull, nor is it obvious how a two pointer solution would work correctly in the general case with the nonlinear cost function involving \(\max()\).
+
+One potential solution is to construct the full graph of all \(N\) nodes with edge weights set to the brand damage between houses, and run Dijkstra's algorithm. This solution is correct, but at first seems to have a time complexity of \(\mathcal{O}(N^2 \log N)\), much too slow for \(N = 1{,}000{,}000\). However, we are only interested in points on the convex hull border — how many vertices can it have?
+
+Let's treat the convex hull edges as vectors lined up tip-to-tail. It turns out that even if these vectors are chosen optimally, one can only fit a convex hull of \(\mathcal{O}(a^{2/3})\) vectors in an \(a \times a\) grid. To see why, consider the vectors in the lower-right quadrant of the hull, sorted radially. In the worst case, the hull will resemble a circle centered at \((500\,000,\,500\,000)\). What is the maximum number of vectors we can generate such that:
+- the sum of the vectors' \(x\)-coordinates is at most \(500{,}000\),
+- the sum of the vectors' \(y\)-coordinates is at most \(500{,}000\), and
+- no vector is a scalar multiple of another?
+
+There aren't that many unique vectors with both small \(x\)- and \(y\)-coordinates. The total number of vectors we can pick is on the order of \((10^6)^{2/3} = 10^4\). In practice, the worst-case convex hull only consists of about \(35{,}000\) vertices. We've included a script, [lemonade_life_count_hull_vertices.py](https://www.dropbox.com/s/nqolapgsm4y6313/lemonade_life_count_hull_vertices.py?dl=0), in the Dropbox for demonstration. This brings the running time of an \(\mathcal{O}(E \log V)\) Dijkstra's implementation to \(35{,}000^2\log_2(35{,}000) \approx 18\) billion steps, which is almost feasible if not for constant factors and the \(\mathcal{O}(E)\) space complexity.
+
+To get the rest of the way there, we can take advantage of the fact that the graph here is complete. On complete graphs, it is more efficient to run Dijkstra's *without a priority queue*. Instead, we can manually search in \(\mathcal{O}(V)\) time to "dequeue" the next node of minimum tentative distance at each step, ridding ourselves of the \(\log(V)\) factor due to heap pushes. We end up with a running time of \(\mathcal{O}(V^2) \approx 1.2\) billion steps, with a low constant factor and \(\mathcal{O}(V)\) space.
+
+With a pessimistic assumption of \(10^8\) steps per second, one would estimate that each of the \(15\) large cases takes under \(12\) seconds, thus comfortably finishing in the \(6\) minute limit. In practice, our official C++ implementation processes the whole file in under \(20\) seconds on a modest laptop.
+</solution_logic>
+<solution_code>
+from typing import List, Tuple
+import math
+
+Point = Tuple[int, int]
+INF = 1 << 60
+
+def cross(a: Point, b: Point, o: Point = (0, 0)) -> int:
+    return (a[0] - o[0]) * (b[1] - o[1]) - (a[1] - o[1]) * (b[0] - o[0])
+
+def convex_hull(points: List[Point]) -> List[Point]:
+    if len(points) <= 1:
+        return points
+        
+    # Sort points lexicographically
+    points = sorted(points)
+    
+    # Build lower and upper hulls
+    hull = []
+    k = 0
+    
+    # Lower hull
+    for p in points:
+        while len(hull) >= 2 and cross(hull[-1], p, hull[-2]) >= 0:
+            hull.pop()
+        hull.append(p)
+    
+    # Upper hull
+    t = len(hull)
+    for p in reversed(points[:-1]):
+        while len(hull) >= t and cross(hull[-1], p, hull[-2]) >= 0:
+            hull.pop()
+        hull.append(p)
+    
+    return hull[:-1]  # Last point is same as first point
+
+def solve(input_data: str) -> str:
+    lines = input_data.strip().split('\n')
+    current_line = 0
+    T = int(lines[current_line])
+    current_line += 1
+    result = []
+    
+    for t in range(1, T+1):
+        N, K, D = map(int, lines[current_line].split())
+        current_line += 1
+        
+        points = []
+        for _ in range(N):
+            x, y = map(int, lines[current_line].split())
+            points.append((x, y))
+            current_line += 1
+            
+        # Get convex hull
+        hull = convex_hull(points)
+        V = len(hull)
+        
+        # Find start and destination points
+        start = dest = -1
+        for i in range(V):
+            if hull[i] == points[0]:
+                start = i
+            if hull[i] == points[-1]:
+                dest = i
+                
+        # Dijkstra's algorithm
+        visited = [False] * V
+        dist = [INF] * V
+        dist[start] = 0
+        
+        while True:
+            u = -1
+            min_dist = INF
+            
+            # Find unvisited vertex with minimum distance
+            for i in range(V):
+                if not visited[i] and dist[i] < min_dist:
+                    u = i
+                    min_dist = dist[i]
+                    
+            if min_dist == INF or u == dest:
+                break
+                
+            visited[u] = True
+            
+            # Update distances
+            for v in range(V):
+                if visited[v]:
+                    continue
+                    
+                dx = hull[u][0] - hull[v][0]
+                dy = hull[u][1] - hull[v][1]
+                d = dx * dx + dy * dy
+                
+                if d <= D * D:
+                    dist[v] = min(dist[v], dist[u] + max(K, d))
+                    
+        ans = dist[dest] if dist[dest] < INF else -1
+        result.append(f"Case #{t}: {ans}")
+        
+    return '\n'.join(result)
+</solution_code>
+</example2>
+<example3>
+After running tests on samples of ore, mining engineers must [plot out the economics of extraction, transportation, and treatment in long range terms](https://youtu.be/zPbY--IXGg8?t=618s). Feasibility reports are then drafted for executive decision.
+
+In a given Ontario town, all the extracted ore is shipped using the town's transportation network, known as its Bulk Transportation Chain (BTC). The BTC is a network of \(N\) ore processing plants, numbered from \(1\) to \(N\), with \(N-1\) roads running amongst them. The \(i\)th road allows ore to be shipped in either direction between plants \(A_i\) and \(B_i\), and has the capacity for at most \(C_i\) kilograms of ore to be shipped through it per minute. It is possible to reach any plant from any other plant by following a sequence of roads.
+
+The *shipping capacity* for an unordered pair of processing plants is the maximum weight of ore that may be shipped between them (in either direction) per minute. This is equal to the minimum capacity of any road on the shortest sequence of roads connecting them (such a sequence is unique per pair of plants).
+
+Mining is a dirty business, and not just among blue-collar workers. Executives of a new mining project are plotting to sabotage their rival company's presence in a given town by disrupting its transportation operations. They hope to blockade a single one of the \(N-1\) roads within the town's BTC network, preventing any ore from being shipped along it and therefore reducing its capacity to \(0\). They would like to negatively impact the shipping capacities between various pairs of processing plants as much as possible, but have yet to decide which road would best accomplish their goal, so they'll consider each of them in turn.
+
+Let \(S_i\) be the sum of shipping capacities, in kilograms, across all \(N*(N-1)/2\) unordered pairs of processing plants if the \(i\)th road were to be blockaded. In order to reduce the size of the output, you must calculate a single integer: the product of \(S_{1..(N-1)}\). As this product may be very large, you should only compute its value modulo \(1{,}000{,}000{,}007\).
+
+
+# Constraints
+
+\(1 \le T \le 45\)
+\(2 \le N \le 800{,}000\)
+\(1 \le A_i, B_i \le N\)
+\(1 \le C_i \le 20\)
+
+The sum of \(N\) across all towns is at most \(4{,}000{,}000\).
+
+
+# Input
+
+Input begins with an integer \(T\), the number of towns that the execs are scoping out. For each town, there is first a line containing a single integer \(N\). Then, \(N-1\) lines will follow, the \(i\)th of which contains the \(3\) space-separated integers \(A_i\), \(B_i\), and \(C_i\).
+
+
+# Output
+
+For the \(i\)th town, output a line containing *"Case #i: "* followed by a single integer, the product of \(S_{1..(N-1)}\), modulo \(1{,}000{,}000{,}007\).
+
+
+# Sample Explanation
+
+In the first town, the BTC network looks as follows:
+
+<photo_description>
+First Town Network:
+    Setup: Two plants connected by a single road with a capacity of 3.
+</photo_description>
+
+If the single road were blockaded (with its capacity reduced to \(0\)), the shipping capacity between plants \(1\) and \(2\) would become 0. Therefore, \(S = [0]\), and the final answer is \(0\).
+
+In the second town, the BTC network looks as follows:
+
+<photo_description>
+Second Town Network:
+    Setup: Three plants connected in a sequence with capacities 4 and 5.
+</photo_description>
+
+If the first road were blockaded, the shipping capacity between plants \(2\) and \(3\) would be \(5\), with the shipping capacities for other pairs of plants (plants \(1\) and \(2\), and plants \(1\) and 3) reduced to \(0\). If the second road were blockaded, there would instead just be a shipping capacity of \(4\) between plants \(1\) and \(2\). Therefore, \(S = [5, 4]\), and the answer is \((5 * 4)\) modulo \(1{,}000{,}000{,}007 = 20\).
+
+In the third town, the BTC network looks as follows:
+
+<photo_description>
+Third Town Network:
+    Setup: Four plants with connections:
+        Between 2 and 1 with capacity 10.
+        Between 1 and 4 with capacity 5.
+        Between 1 and 3 with capacity 1.
+</photo_description>
+
+If the first road (between plants \(2\) and \(1\)) were blockaded, there would be a shipping capacity of \(5\) between plants \(1\) and \(4\), and a shipping capacity of \(1\) between plants \(1\) and \(3\) as well as between plants \(3\) and \(4\). Therefore, \(S_1 = 5 + 1 + 1 = 7\). Overall, \(S = [7, 20, 12]\), and the answer is \((7 * 20 * 12)\) modulo \(1{,}000{,}000{,}007 = 1{,}680\).
+
+In the fourth town, \(S = [6, 4, 4, 6]\).
+
+In the fifth town, \(S = [36, 41, 28, 21, 34, 29, 41]\).
+</problem_statement>
+<sample_test_cases>
+<sample_input>
+5
+2
+1 2 3
+3
+1 2 4
+3 2 5
+4
+2 1 10
+3 1 1
+4 1 5
+5
+1 2 1
+2 3 1
+3 4 1
+4 5 1
+8
+4 6 2
+2 7 1
+5 1 2
+1 4 3
+8 5 4
+2 4 3
+3 1 1
+</sample_input>
+<sample_output>
+Case #1: 0
+Case #2: 20
+Case #3: 1680
+Case #4: 576
+Case #5: 85240043
+</sample_output>
+</sample_test_cases>
+
+<solution_logic>
+Let \(K\) be the sum of shipping capacities without any roads being blockaded. We can compute \(K\) in \(O(N \log(N))\) time by sorting and processing the roads in non-increasing order of capacity, while maintaining a [disjoint-set data structure](https://en.wikipedia.org/wiki/Disjoint-set_data_structure) of groups of processing plants connected by roads processed so far (with each road initially in its own group). When road \(i\) is processed, it causes all plants in \(A_i\)'s group to become connected to all plants in \(B_i\)'s group, and must be a minimum-capacity road on the paths between those plants. Therefore, we can increment \(K\) by the product of \(C_i\), the number of plants in \(A_i\)'s group, and the number of plants in \(B_i\)'s group. The two groups should then be merged together.
+
+We'll then want to compute, for each road \(i\), the amount \(Z_i\) by which the sum of shipping capacities would decrease if road \(i\) were blockaded (such that \(S_i = K - Z_i\)).
+
+One possible approach involves two stages of dynamic programming, based on treating the network of plants and roads as a tree rooted at an arbitrary node (plant).
+
+First, let \(D_{i,j}\) be the number of nodes within node \(i\)'s subtree which are reachable from node \(i\) using only edges (roads) with capacities greater than or equal to \(j\). We can compute \(D_{i,j}\) for all pairs \((i, j)\) by recursing through the tree — when a node \(i\) has an edge with capacity \(c\) to a child \(k\), we should increase \(D_{i,c'}\) by \(D_{k,c'}\) for each \(c'\) no greater than \(c\).
+
+Next, let \(U_{i,j}\) similarly be the number of nodes *not* within node \(i\)'s subtree which are reachable from node \(i\) using only edges with capacities greater than or equal to \(j\). We'll recurse through the tree once again to compute these values — when a node \(i\) has an edge with capacity \(c\) to a child \(k\), we should set \(U_{k,c'}\) to equal \(U_{i,c'} + D_{i,c'} - D_{k,c'}\) for each \(c'\) no greater than \(c\).
+
+Finally, let's consider each non-root node \(i\), such that the edge connecting node \(i\) and its parent corresponds to some road \(r\). The number of pairs of plants with shipping capacities greater than or equal to some capacity \(c\) whose routes include road \(r\) must be \(P_{i,c} = D_{i,c} * U_{i,c}\). Furthermore, the number of such pairs with shipping capacities equal to exactly \(c\) must be \(P_{i,c+1} - P_{i,c}\). We can therefore compute \(Z_i\) as the sum of \(c * (P_{i,c+1} - P_{i,c})\) over all capacities \(c\).
+
+This algorithm takes a total of \(O(N (\log(N) + \max(C_{1..N})))\) time.
+</solution_logic>
+<solution_code>
+from typing import List, Dict, Tuple
+from collections import defaultdict
+
+class UnionFind:
+    def __init__(self, N: int):
+        self.N = N
+        self.root = list(range(N))
+        self.rank = [0] * N
+        self.size = [1] * N
+        
+    def find(self, i: int) -> int:
+        if self.root[i] != i:
+            self.root[i] = self.find(self.root[i])
+        return self.root[i]
+        
+    def merge(self, i: int, j: int) -> bool:
+        i = self.find(i)
+        j = self.find(j)
+        
+        if i == j:
+            return False
+            
+        if self.rank[i] > self.rank[j]:
+            i, j = j, i
+            
+        self.root[i] = j
+        self.size[j] += self.size[i]
+        
+        if self.rank[i] == self.rank[j]:
+            self.rank[j] += 1
+            
+        return True
+        
+    def get_size(self, i: int) -> int:
+        return self.size[self.find(i)]
+
+def solve(input_data: str) -> str:
+    MOD = 1000000007
+    LIM2 = 20
+    
+    lines = input_data.strip().split('\n')
+    current_line = 0
+    T = int(lines[current_line])
+    current_line += 1
+    result = []
+    
+    for t in range(1, T+1):
+        N = int(lines[current_line])
+        current_line += 1
+        
+        # Build adjacency list
+        adj = defaultdict(list)
+        edges = []
+        for _ in range(N-1):
+            a, b, c = map(int, lines[current_line].split())
+            current_line += 1
+            a -= 1
+            b -= 1
+            adj[a].append((b, c))
+            adj[b].append((a, c))
+            edges.append((c, (a, b)))
+            
+        # Calculate initial capacity sum
+        tot = 0
+        uf = UnionFind(N)
+        for c, (a, b) in sorted(edges, reverse=True):
+            tot = (tot + c * uf.get_size(a) * uf.get_size(b)) % MOD
+            uf.merge(a, b)
+            
+        # Dynamic programming arrays
+        dynD = [[0] * (LIM2 + 2) for _ in range(N)]
+        dynU = [[0] * (LIM2 + 2) for _ in range(N)]
+        
+        # Populate dynD - nodes reachable down
+        def recD(i: int, p: int) -> None:
+            for j in range(1, LIM2 + 1):
+                dynD[i][j] = 1
+                
+            for b, c in adj[i]:
+                if b == p:
+                    continue
+                recD(b, i)
+                for j in range(1, c + 1):
+                    dynD[i][j] += dynD[b][j]
+                    
+        # Populate dynU and calculate answer
+        def recU(i: int, p: int) -> None:
+            nonlocal ans, tot
+            
+            for b, c in adj[i]:
+                if b == p:
+                    continue
+                    
+                for j in range(1, LIM2 + 1):
+                    if j <= c:
+                        dynU[b][j] = (dynU[i][j] + dynD[i][j] - dynD[b][j] + MOD) % MOD
+                    else:
+                        dynU[b][j] = 0
+                        
+                totE = tot
+                prev = 0
+                for j in range(c, 0, -1):
+                    curr = dynD[b][j] * dynU[b][j] % MOD
+                    cnt = (curr - prev + MOD) % MOD
+                    s = cnt * j % MOD
+                    totE = (totE - s + MOD) % MOD
+                    prev = curr
+                    
+                ans = ans * totE % MOD
+                recU(b, i)
+                
+        ans = 1
+        recD(0, -1)
+        recU(0, -1)
+        
+        result.append(f"Case #{t}: {ans}")
+        
+    return '\n'.join(result)
+</solution_code>
+</example3>

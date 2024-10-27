@@ -242,6 +242,28 @@ def solve(input_data: str) -> str:
 
 Meta Getaways is a travel agency that deals with \(N\) airports numbered \(1...N\), and \(M\) flight paths. Flight path \(i\) connects airports \(A_i\) and \(B_i\) in both directions, with two direct flights operating every morning (one in each direction), and another two every evening (also one in each direction). Each of these four direct flights can carry up to \(C_i\) **t**ourists.
 
+<photo_description>
+Diagram of Airports and Flights:
+
+    Four airports are labeled 1, 2, 3, and 4.
+    Flight paths connect these airports, forming a network.
+
+Flight Details:
+
+    Each path has a capacity:
+        Between 1 and 2: C1=10C1​=10
+        Between 1 and 3: C2=15C2​=15
+        Between 2 and 4: C3=5C3​=5
+        Between 3 and 4: C4=10C4​=10
+        Between 4 and 1: C5=7C5​=7
+    Red arrows indicate morning flights.
+    Blue arrows indicate evening flights.
+
+Flight Connections:
+
+    Direct flights are available in both directions between the airports, with specified capacities for each route.
+</photo_description>
+
 The first sample case is depicted above, with morning and evening flights in red and blue.
 
 Peak travel season is here, and will last \(Q\) days. For each day \(i\), determine \(F_i\), the maximum number of tourists who could possibly fly from airport \(X_i\) to \(Y_i\). Each tourist may either fly directly or take one morning and one evening flight which share an intermediate airport.

@@ -1,0 +1,350 @@
+<example1>
+<problem_statement>
+*…right down Santa Claus Lane!*
+
+Santa Claus Lane is home to \(N\) elves, the \(i\)th of whom lives \(X_i\) meters from the start of the lane. As Santa's little helper, you're tasked to assign elves to work on toys for good little girls and boys. Specifically, you must assign each elf to work on some toy so that at least \(2\) toys get worked on, and no elf works on a toy alone.
+
+All elves working on the same toy will meet at the point which minimizes the farthest distance that any of them would need to walk. Formally, if the elves assigned to a given toy live at \(X_1\), \(X_2\), \(…\), then they will meet at point \(P\) such that \(\max(|X_1 - P|\), \(|X_2 - P|\), \(…\)\()\) is as small as possible.
+
+For instance, the first sample case is depicted below:
+
+<photo_description>
+A number line from 0 to 24 meters is shown with elves positioned at specific points: 1, 3, 7, 12, 13, 17, and 23 meters.
+Arrows indicate groupings of elves meeting at optimal points: 2, 10, and 20 meters:
+    Group 1: Elves at 1 and 3 meters meet at 2 meters. This is the midpoint, minimizing their maximum walking distance.
+    Group 2: Elves at 7, 12, and 13 meters meet at 10 meters. This point is chosen as it minimizes the farthest distance any elf in this group has to walk.
+    Group 3: Elves at 17 and 23 meters meet at 20 meters. Again, this is selected to minimize the maximum distance for these elves.
+Santa's total walking distance between these meeting points (2, 10, and 20 meters) is calculated to be 18 meters.
+</photo_description>
+Santa is supervising, and you reckon he could use some exercise. Among all valid assignments of elves to toys, what's the farthest Santa would need to walk to visit all meeting points? Santa may start and end anywhere, but will try to walk as little as possible after seeing your assignments.
+
+# Constraints
+
+\(1 \leq T \leq 20\)
+\(4 \leq N \leq 10^5 \)
+\(1 \leq X_i \leq 10^9 \)
+
+# Input Format
+
+Input begins with an integer \(T\), the number of test cases. Each case begins with one line containing the integer \(N\), followed by a second line containing the the \(N\) integers \(X_1 ... X_N\).
+
+# Output Format
+
+For the \(i\)th test case, print "`Case #i:` " followed by a single real number, the farthest distance Santa would need to walk in meters. Your answer will be considered correct if it differs from the jury's answer by at most \(10^{-6}\) meters or at most \(0.0001\)%, whichever is larger.
+
+# Sample Explanation
+
+In the first sample case, elves living at \(1 \,\text{m}\) and \(3 \,\text{m}\) will work on a toy. Elves living at \(7 \,\text{m}\), \(12 \,\text{m}\), and \(13 \,\text{m}\) will work on another toy, and elves at \(17 \,\text{m}\) and \(23 \,\text{m}\) will work on the third toy. The toys will be made at \(2 \,\text{m}\), \(10 \,\text{m}\) and \(20 \,\text{m}\) respectively. Santa would need to walk at least \(18 \,\text{m}\) in total to visit every meeting point.
+
+The second sample case is depicted below. No elf is allowed to work alone and we must make two toys. One optimal way of doing this is to have the leftmost \(3\) elves work on one toy at \(2 \,\text{m}\), and the rest work on the other toy at \(4.5 \,\text{m}\). This would maximize the distance Santa would have to walk among all valid elf assignments.
+
+<photo_description>
+A number line from 0 to 6 meters is depicted with elves positioned at 1, 2, 3, 5, and 6 meters.
+Elves are grouped into two clusters: one meeting at 2 meters and the other at 4.5 meters:
+    Group 1: Elves at 1, 2, and 3 meters meet at 2 meters. This minimizes the farthest distance any elf in this group has to walk.
+    Group 2: Elves at 5 and 6 meters meet at 5.5 meters. This is the midpoint, reducing their maximum walking distance.
+This arrangement maximizes Santa’s walking distance between the meeting points (2 and 5.5 meters), ensuring he walks the farthest possible distance given the constraints.
+</photo_description>
+
+In the third case, the two toys will be made at \(55 \,\text{m}\) and \(5500 \,\text{m}\).
+
+</problem_statement>
+<sample_test_cases>
+<sample_input>
+3
+7
+1 17 3 13 7 23 12
+5
+5 4 3 2 1
+4
+10 100 1000 10000
+</sample_input>
+<sample_output>
+Case #1: 18
+Case #2: 2.5
+Case #3: 5445
+</sample_output>
+</sample_test_cases>
+<solution_logic>
+For a given assignment, Santa will always walk from the leftmost toy to the rightmost toy. It's in our interest to get these two meeting points as far as possible. This is equivalent to independently minimizing the leftmost meeting point, while maximing the rightmost meeting point.
+
+For all elves assigned to a toy, the meeting point will always be the average of the leftmost and rightmost elf. To minimize the leftmost meeting point, it's intuitive that grouping only the \(2\) leftmost elves will get the average as small as possible. Likewise, we group the \(2\) rightmost elves.
+
+We can sort the elves by ascending \(x\)-coordinates \(X_1' < ... < X_N'\), find the left meeting point as \((X_2' - X_1')/2\) and the right meeting point as \((X_{N}' - X_{N-1}')/2\). The answer (i.e. the distance of Santa's walk) will be the difference between those two meeting points.
+
+The only special case occurs if there are \(N = 5\) elves. If we did the above, we would be left with a single elf in the middle who isn't allowed to work on a toy alone. We must instead include the middle elf in one of the other two groups. When \(N \ge 6\), there are at least \(2\) middle elves in our main strategy, so they won't pose an issue.
+</solution_logic>
+<solution_code>
+def solve(input_data: str) -> str:
+    lines = input_data.strip().split('\n')
+    current_line = 0
+    T = int(lines[current_line])
+    current_line += 1
+    result = []
+    
+    for t in range(1, T+1):
+        N = int(lines[current_line])
+        current_line += 1
+        
+        X = list(map(int, lines[current_line].split()))
+        current_line += 1
+        
+        X.sort()
+        
+        ans = X[N-1] + X[N-2] - (X[0] + X[1])
+        
+        if N == 5:
+            ans = max(
+                X[N-1] + X[N-3] - (X[0] + X[1]),
+                X[N-1] + X[N-2] - (X[0] + X[2])
+            )
+            
+        result.append(f"Case #{t}: {ans/2:.1f}")
+        
+    return '\n'.join(result)
+</solution_code>
+</example1>
+<example2>
+<problem_statement>
+Let's cut to the chase. You have a deck of \(N\) face-up cards, each displaying a **unique integer between \(1\) and \(N\)**.
+
+*Cutting* the deck once consists of taking a stack of between \(1\) and \(N - 1\) (inclusive) cards from the top and moving it to the bottom in the same order. For example, for the deck \([5, 1, 2, 4, 3]\) ordered from top to bottom, cutting \(2\) cards from the top would yield \([2, 4, 3, 5, 1]\):
+
+<photo_description>
+Left Side: Shows a deck of cards arranged in the order [5, 1, 2, 4, 3] from top to bottom.
+Right Side: Illustrates the result after performing a cut by moving the top 2 cards to the bottom. The new order is [2, 4, 3, 5, 1].
+This demonstrates the process of cutting the deck to reorder the cards.
+</photo_description>
+
+Initially, the \(i\)th card from the top is \(A_i\). Is it possible to cut the deck exactly \(K\) times to reorder the deck such that the \(i\)th card from the top is \(B_i\) for all \(i\)?
+
+
+# Constraints
+
+\(1 \le T \le 200\)
+\(2 \le N \le 500{,}000\)
+\(0 \le K \le 10^9\)
+\(1 \le A_i, B_i \le N\)
+**\(A\) and \(B\) are each permutations of \(1..N\).**
+
+The sum of \(N\) across all test cases is at most \(5{,}000{,}000\).
+
+# Input Format
+
+Input begins with an integer \(T\), the number of test cases. For each test case, there is first a line containing two space-separated integers \(N\) and \(K\). Then, there is a line containing \(N\) space-separated integers, \(A_1, ..., A_N\). Then, there is a line containing \(N\) space-separated integers, \(B_1, ..., B_N\).
+
+
+# Output Format
+
+For the \(i\)th test case, print `"Case #i: "` followed by `"YES"` if it's possible to cut the deck \(K\) times to change the deck from \(A_i\) to \(B_i\), or `"NO"` otherwise.
+
+
+# Sample Explanation
+
+In the first case, it's possible to get to the new order with \(K = 1\) cut (cutting 2 cards from the top).
+
+In the second case, it's impossible to change \([3, 1, 4, 2]\) to \([1, 2, 3, 4]\) with any number of cuts.
+
+In the third case, it's impossible for the deck to be in a different order after \(K = 0\) cuts.
+</problem_statement>
+<sample_test_cases>
+<sample_input>
+4
+5 1
+5 1 2 4 3
+2 4 3 5 1
+4 10
+3 1 4 2
+1 2 3 4
+4 0
+3 1 4 2
+2 3 1 4
+3 3
+3 2 1
+1 3 2
+</sample_input>
+<sample_output>
+Case #1: YES
+Case #2: NO
+Case #3: NO
+Case #4: YES
+</sample_output>
+</sample_test_cases>
+
+<solution_logic>
+When \(K = 0\), we can't perform any cuts, so the answer is `YES` if and only if \(A = B\).
+
+When \(K = 1\), first note that the answer is `NO` if \(A = B\), since we we are forced to disrupt the equality with a cut (which cannot be \(0\) cards). Otherwise if \(A \ne B\), we see that cutting the deck once is the same as rotating an array. Checking if a *sorted* array \(A\) has been rotated to \(B\) can be done by checking that each pair of adjacent values in \(B\) are in order, with exactly one exception. Since \(A\) is not guaranteed to be sorted, we can precompute a mapping of \(A\) values to their indices, and instead check that the mapped indices of all \(B\) values are in order, with exactly one exception.
+
+When \(K \ge 2\), we can observe that any sequence of rotations that doesn't preserve the original order can be replicated with just one rotation. Again, we can just output `YES` if \(B\) is a rotation of \(A\). If \(A = B\), we can also output `YES`, as it only takes one rotation to restore any rotated deck back to the original order.
+
+A special case to watch out for is when \(N = 2\), e.g. \(A = [1, 2]\). When \(B = [1, 2]\), the answer is `YES` if and only if \(K\) is even. When \(B = [2, 1]\), then answer is `YES` if and only if \(K\) is odd. The answers are flipped if \(A = [2, 1]\).
+</solution_logic>
+<solution_code>
+class KMP:
+    def __init__(self, needle):
+        self.needle = needle
+        m = len(needle)
+        self.table = [0] * m
+        
+        j = 0
+        for i in range(1, m):
+            while j > 0 and needle[i] != needle[j]:
+                j = self.table[j - 1]
+            if needle[i] == needle[j]:
+                j += 1
+            self.table[i] = j
+            
+    def find_in(self, haystack):
+        m = len(self.needle)
+        if m == 0:
+            return 0
+            
+        j = 0
+        for i in range(len(haystack)):
+            while j > 0 and self.needle[j] != haystack[i]:
+                j = self.table[j - 1]
+            if self.needle[j] == haystack[i]:
+                j += 1
+            if j == m:
+                return i + 1 - m
+        return -1
+
+def solve(input_data: str) -> str:
+    lines = input_data.strip().split('\n')
+    current_line = 0
+    T = int(lines[current_line])
+    current_line += 1
+    result = []
+    
+    for t in range(1, T+1):
+        N, K = map(int, lines[current_line].split())
+        current_line += 1
+        A = list(map(int, lines[current_line].split()))
+        current_line += 1
+        B = list(map(int, lines[current_line].split()))
+        current_line += 1
+        
+        is_equal = A == B
+        
+        # Check special cases
+        if K == 0:
+            ans = "YES" if is_equal else "NO"
+        elif N == 2:
+            if A[0] == A[1]:
+                ans = "YES"  # Same numbers
+            else:
+                # Different numbers
+                if is_equal:
+                    ans = "YES" if K % 2 == 0 else "NO"
+                else:
+                    ans = "YES" if K % 2 == 1 else "NO"
+        else:
+            # Check if array is rotated by searching for B within (A + A)
+            AA = A + A
+            if K == 1 and is_equal:
+                # If K = 1 and A = B, we can't match at index 0 or N-1 of (A + A)
+                AA = AA[1:-1]
+            
+            ans = "YES" if KMP(B).find_in(AA) >= 0 else "NO"
+            
+        result.append(f"Case #{t}: {ans}")
+    
+    return '\n'.join(result)
+</solution_code>
+</example2>
+<example3>
+Timmy the toddler is training to be a top typist. His teacher has assigned some homework in the form of a list of \(T\) string exercises to be typed, consisting of only the uppercase letters "F", "O", and "X".
+
+Timmy is eating a popsicle on a hot summer afternoon, but still hopes to complete his homework. He would like to hold the popsicle with one hand, and type with the other. Unfortunately, Timmy is still a growing boy, and each of his hands is a tad too small to reach all the way across the keyboard. He can only reach the letters "F" and "X" with his left hand, and the letters "F" and "O" with his right.
+
+Consider a string \(W\) which Timmy must type. Timmy may start typing with any hand of his choice (with the other holding the popsicle). He must then switch hands as necessary to type out the \(|W|\) letters in order, ending on any hand of his choice.
+
+Given an exercise string \(W\) of length \(N\), let \(F(W)\) be the minimum number of times Timmy must switch hands to type \(W\). Please help Timmy compute the value of \(F(W)\).
+
+
+# Constraints
+
+\(1 \le T \le 80\)
+\(1 \le N \le 800{,}000\)
+
+Each string consists only of the letters "F", "O", and "X".
+The sum of \(N\) across all exercises is at most \(4{,}000{,}000\).
+
+
+# Input
+
+Input begins with an integer \(T\), the number of exercises that Timmy has been assigned. For each exercise, there is first a line containing the single integer \(N\), followed by a second line containing the string \(W\) of length \(N\).
+
+
+# Output
+
+For the \(i\)th exercise, output a line containing *"Case #i: "* followed by a single integer, \(F(W)\).
+
+
+# Sample Explanation
+
+In the first exercise, if Timmy begins with his right hand, he can type the single letter "O" without needing to switch to his left hand.
+
+In the second exercise, if Timmy begins with his left hand, he can type all \(3\) of the string's letters in order with \(1\) hand switch (for example, by switching to his right hand after typing the \(1\)st letter).
+
+In the third exercise, Timmy can type the entire string with his right hand.
+
+In the fourth exercise, it's possible for Timmy to type the string while only switching hands twice.
+</problem_statement>
+<sample_test_cases>
+<sample_input>
+5
+1
+O
+3
+XFO
+5
+FFOFF
+10
+FXXFXFOOXF
+13
+XFOFXFOFXFOFX
+</sample_input>
+<sample_output>
+Case #1: 0
+Case #2: 1
+Case #3: 0
+Case #4: 2
+Case #5: 6
+</sample_output>
+</sample_test_cases>
+
+<solution_logic>
+The letter "F" may always be typed, whichever hand is being used. Therefore, occurrences of "F" in \(W\) have no bearing on which hand Timmy chooses to use, and may be ignored.
+
+This leaves us with a reduced string \(W'\) of relevant letters, each being either "X" (only typeable with Timmy's left hand) or "O" (only typeable with his right hand). Whenever a "X" is followed by an "O" in \(W'\), Timmy must switch from his left hand to his right, and vice versa whenever an "O" is followed by a "X". Therefore, \(F(W)\) is equal to the number of pairs of consecutive differing letters in \(W'\).
+</solution_logic>
+<solution_code>
+def solve(input_data: str) -> str:
+    lines = input_data.strip().split('\n')
+    current_line = 0
+    T = int(lines[current_line])
+    current_line += 1
+    result = []
+    
+    for t in range(1, T+1):
+        N = int(lines[current_line])
+        W = lines[current_line + 1]
+        current_line += 2
+        
+        p = -1
+        ans = 0
+        
+        for i in range(N):
+            if W[i] == 'F':
+                continue
+            if p >= 0 and W[i] != W[p]:
+                ans += 1
+            p = i
+            
+        result.append(f"Case #{t}: {ans}")
+        
+    return '\n'.join(result)
+</solution_code>
+</example3>

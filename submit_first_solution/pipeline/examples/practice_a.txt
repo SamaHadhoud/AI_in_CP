@@ -1,12 +1,19 @@
 <examples>
 <example1>
 <problem_statement>
-*This problem shares some similarities with A2, with key differences in bold.*
-
 Problem solving skills are applicable to many daily musings. For instance, you might ponder over shared birthdays, bird houses, mapmaking, or ordering an exact number of chicken nuggets. Naturally, another great question to ponder is: how many deckers of a cheeseburger you could build if you spent your entire salary on fast food!
 
 Specifically, you're interested in building a \(K\)-decker cheeseburger, which alternates between buns, cheese, and patty starting and ending with a bun. **You've already bought \(S\) single cheeseburgers and \(D\) double cheeseburgers**. Each provides you with two buns, though a single provides one patty and one cheese, while a double provides two patties and two cheese.
 
+<photo_description>
+Cheeseburger Components:
+    Single Cheeseburger: Contains 2 buns, 1 patty, and 1 cheese slice.
+    Double Cheeseburger: Contains 2 buns, 2 patties, and 2 cheese slices.
+Decker Configurations:
+    1-Decker: Alternates between bun, patty, cheese, and ends with a bun.
+    2-Decker: Adds another layer of patty and cheese.
+    3-Decker: Continues the pattern for a taller burger.
+</photo_description>
 You'd like to know **whether you can build a \(K\)-decker cheeseburger** with the ingredients from \(S\) single and \(D\) double cheeseburgers.
 
 # Constraints
@@ -100,9 +107,15 @@ For the \(i\)th test case, print "`Case #i:` " followed by "`YES`" if it's possi
 # Sample Explanation
 
 In the first test case, there are \(3\) parts of styles \(1\), \(2\), and \(2\), with the display cases having capacity \(2\). One solution, depicted below, is to put the first and third parts in one display case, and the second part in the other.
-
+<photo_description>
+Parts: Styles 1, 2, and 2.
+Solution: Place one part of style 1 and one part of style 2 in one case, and the remaining part of style 2 in the other case.
+</photo_description>
 In the second test case, there are \(5\) parts of styles \(1\), \(2\), \(3\), \(3\), \(1\), with the display cases having capacity \(3\). One solution, depicted below, is to put the first three parts in one display case, and the last two in the other.
-
+<photo_description>
+arts: Styles 1, 2, 3, 3, and 1.
+Solution: Place parts of styles 1, 2, and 3 in one case, and the remaining parts (3 and 1) in the other.
+</photo_description>
 In the third test case, there are \(5\) parts, but the display cases can each only hold \(2\). Therefore, there is no solution.
 
 In the fourth test case, style \(1\) will always be duplicated in some display case for any given arrangement. Therefore, there is no solution.

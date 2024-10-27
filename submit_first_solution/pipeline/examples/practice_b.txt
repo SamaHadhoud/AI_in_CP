@@ -220,9 +220,17 @@ For the \(i\)th test case, print `"Case #i: "` followed by `"YES"` if Alice has 
 # Sample Explanation
 
 The first case is depicted below, with Alice's moves in red and Bob's in blue. Alice moves down, and Bob moves right to win immediately. There is no other valid sequence of moves, so Alice has no guaranteed winning strategy.
-
-The second case is depicted below. One possible guaranteed winning strategy is if Alice moves \(3\) units down, then Bob can only move \(1\) unit, and finally Alice can win with \(1\) unit.
-</problem_statement>
+<photo_description>
+Setup: A simple grid where Alice begins by moving the cart down.
+Outcome: Bob moves the cart right to win immediately. Alice cannot secure a winning strategy.
+</photo_description>
+The second case is depicted below. One possible guaranteed winning strategy is if Alice moves \(3\) units down, then Bob can only move \(1\) unit, and finally Alice can win with \(1\) unit.</problem_statement>
+<photo_description>
+Setup: A grid showing a series of moves.
+Alice’s Strategy: She moves the cart 3 units down.
+Bob’s Move: He can only move 1 unit right.
+Final Move: Alice moves 1 unit to win, demonstrating a winning strategy.
+</photo_description>
 <sample_test_cases>
 <sample_input>
 3
@@ -280,4 +288,127 @@ def solve(input_data: str) -> str:
     return '\n'.join(result)
 </solution_code>
 </example2>
+<example3>
+<problem_statement>
+**Note: The only difference between this problem and [problem B2](https://www.facebook.com/codingcompetitions/hacker-cup/2022/qualification-round/problems/B2) is that here, scenes are smaller and do not contain rocks.**
+
+Boss Rob painted a beautiful scene on a 2D canvas of \(R\) rows by \(C\) columns, containing zero or more happy little trees.
+
+To make sure none of his trees are lonely, Rob would like you to add as many trees as you'd like (possibly \(0\)) to empty spaces so that each tree in the final painting has at least two tree *friends*, that is, two trees which are each adjacent to it (directly to its north, south, east, or west). If there are multiple solutions, you may print any one of them.
+
+
+# Constraints
+
+\(1 \leq T \leq 85\)
+\(1 \leq R, C \leq \mathbf{100}\)
+
+
+# Input Format
+
+Input begins with an integer \(T\), the number of test cases. For each case, there is first a line containing two space-separated integers, \(R\) and \(C\). Then, \(R\) lines follow, each of which contains \(C\) characters, either "`.`" (an empty space) or "`^`" (a tree), representing the initial painting.
+
+
+# Output Format
+
+For the \(i\)th case, print "`Case #i: ` ", followed by "`Possible`" and \(R\) lines of \(C\) characters each representing the final painting (if a solution exists), otherwise "`Impossible`".
+
+
+# Sample Explanation
+
+In the first case (depicted below), we could add two tree friends to either side of the middle tree, but they themselves would each only have one tree friend. Therefore, it's impossible to get two friends for each tree in the final painting.
+
+<photo_description>
+Grid Dimensions:1x3
+Initial Tree Placement:
+    A single tree in the center of the grid
+Result: Impossible to add trees to satisfy the requirement of each tree having two neighbors.
+</photo_description>
+
+In the second case, there are no trees in the initial painting, so the condition of two friends for each tree is already satisfied.
+
+In the third case, one possible solution is depicted below.
+
+<photo_description>
+Grid Dimensions: 4x4
+
+Initial Tree Placement:
+    Trees are initially placed at:
+        Row 1, Column 2
+        Row 2, Column 1 and Column 4
+        Row 3, Column 3
+        Row 4, Column 2
+Possible Solution:
+    Add trees at:
+        Row 1, Column 1 and Column 3
+        Row 2, Column 2 and Column 3
+        Row 3, Column 2
+        Row 4, Column 1, Column 3, and Column 4
+</photo_description>
+</problem_statement>
+<sample_test_cases>
+<sample_input>
+3
+1 3
+.^.
+3 1
+.
+.
+.
+4 4
+..^.
+..^.
+....
+...^
+</sample_input>
+<sample_output>
+Case #1: Impossible
+Case #2: Possible
+.
+.
+.
+Case #3: Possible
+^^^.
+^.^.
+^^^^
+..^^
+</sample_output>
+</sample_test_cases>
+<solution_logic>
+If a grid has only one row or one column, then it's impossible for every tree to be adjacent to two other trees, since the outermost tree(s) can only have one friend. The only exception is if the grid is initially empty, in which case the requirement is vacuously true.
+
+Otherwise, for a grid with at least two rows and columns, notice that filling the entire grid with trees will always leave every tree with at least two friends.
+</solution_logic>
+<solution_code>
+def solve(input_data: str) -> str:
+    def process_test_case(lines, start_idx):
+        R, C = map(int, lines[start_idx].split())
+        grid = []
+        empty = True
+        
+        for i in range(R):
+            row = lines[start_idx + 1 + i]
+            grid.append(row)
+            empty = empty and all(c == '.' for c in row)
+            
+        if not empty and (R < 2 or C < 2):
+            return "Impossible", start_idx + R + 1
+            
+        result = "Possible\n"
+        fill_char = '.' if empty else '^'
+        result += "\n".join(fill_char * C for _ in range(R))
+        
+        return result, start_idx + R + 1
+    
+    lines = input_data.strip().split('\n')
+    T = int(lines[0])
+    current_line = 1
+    result = []
+    
+    for t in range(1, T+1):
+        case_result, next_line = process_test_case(lines, current_line)
+        result.append(f"Case #{t}: {case_result}")
+        current_line = next_line
+        
+    return "\n".join(result)
+</solution_code>
 </examples>
