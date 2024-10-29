@@ -54,7 +54,7 @@ class Args(simple_parsing.Serializable):
     timeout: int = 30
     max_attempts: int = 20
     retrive_flag: bool = False
-    choose_best_flag: bool = True
+    choose_best_flag: bool = False
     heurstic_compare:bool = True
     cache_directory: Path = Path("data/cache")
 
@@ -66,8 +66,8 @@ async def get_few_shot_cot_examples(problem_letter, problem_round):
 @weave.op()
 async def solve_single_problem(args: Args, problem_name: str, problem_letter, retriever):
     """Solve a single problem and log results in Weave."""
-    # examples = await get_few_shot_cot_examples(problem_letter, args.problem_round)
-    examples = ""
+    examples = await get_few_shot_cot_examples(problem_letter, args.problem_round)
+    # examples = ""
 
     problem = Problem.from_name(problem_name, args.folder_path)
     logging.info(f"Solving problem: {problem_name}")
@@ -279,7 +279,7 @@ async def main(args: Args):
     if args.choose_best_flag and args.heurstic_compare:
         x+="heurstic_compare-"
     if args.weave_log:
-        weave.init(f"with-analysis-hack-cup-{x}{model_name.replace('/', '-')}")
+        weave.init(f"examples-with-analysis-hack-cup-{x}{model_name.replace('/', '-')}")
 
     # retriever = Retriever("AlaaAhmed2444/rag_full")
     

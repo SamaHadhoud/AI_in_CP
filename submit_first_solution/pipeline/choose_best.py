@@ -681,7 +681,7 @@ def analyze_code_complexity(code: str) -> tuple:
         return float('inf'), float('inf')  # Return high values for invalid code
 
 @weave.op
-def rank_solutions(solutions: List[SolutionAttempt]) -> List[SolutionAttempt]:
+def rank_solutions_choose_best(solutions: List[SolutionAttempt]) -> List[SolutionAttempt]:
     def solution_score(solution: SolutionAttempt) -> tuple:
         # Analyze code complexity
         max_depth, loop_count = analyze_code_complexity(solution.code)
@@ -727,7 +727,7 @@ def solve_problem_choose_best(problem: Problem, analysis, use_images=False, time
 
         solutions_results = [try_solution(problem, code, timeout) for code in solutions_codes]
 
-        solutions_ranked = rank_solutions(solutions_results)
+        solutions_ranked = rank_solutions_choose_best(solutions_results)
         
         code = solutions_ranked[0].code
     else:
