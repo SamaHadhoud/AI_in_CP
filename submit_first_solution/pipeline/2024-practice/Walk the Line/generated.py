@@ -1,81 +1,84 @@
 from pathlib import Path
 input = Path('./full_in.txt').read_text()
 
-from typing import List
-from collections import deque
-from heapq import heappop, heappush
-from tqdm import tqdm
+from io import StringIO
 
 def solve(input_data: str) -> str:
-    # Parse input
-    lines = input_data.strip().split('\n')
-    T = int(lines[0])
+    # Read input data
+    input = StringIO(input_data)
+    
     results = []
-
-    for case in tqdm(range(1, T + 1)):
-        try:
-            N, K = map(int, lines[2 * case - 1].split())
-            S = list(map(int, lines[2 * case].split()))
-
-            # Sort travelers by their crossing time
-            S.sort()
-
-            # Initialize priority queue for the flashlight returns
-            flashlight_queue = []
-
-            # Initialize current time
-            current_time = 0
-
-            # Function to cross two travelers
-            def cross_two(i, j):
-                nonlocal current_time
-                current_time += max(S[i], S[j])
-                heappush(flashlight_queue, S[i] + S[j])
-
-            # Function to cross one traveler
-            def cross_one(i):
-                nonlocal current_time
-                current_time += S[i]
-                heappush(flashlight_queue, S[i])
-
-            # Initialize queue with the first two travelers
-            queue = deque([0, 1])
-
-            # Process the queue until all travelers are on the other side
-            while queue or flashlight_queue:
-                if queue:
-                    # Cross the two fastest travelers
-                    i, j = queue.popleft(), queue.popleft()
-                    cross_two(i, j)
-                else:
-                    # Return the flashlight if there are still people left
-                    if queue:
-                        i = queue.popleft()
-                        cross_one(i)
-
-                # Add the next fastest traveler to the queue if possible
-                if len(queue) < 2 and len(flashlight_queue) > 0:
-                    next_flashlight_time = flashlight_queue[0]
-                    next_traveler = next_flashlight_time - S[next_flashlight_time]
-                    if next_traveler < N:
-                        heappop(flashlight_queue)
-                        queue.append(next_traveler)
-
-                # Check if the current time exceeds K
-                if current_time > K:
-                    break
-
-            # Check if all travelers can cross within K seconds
-            if current_time <= K:
-                results.append(f"Case #{case}: YES")
-            else:
-                results.append(f"Case #{case}: NO")
-
-        except (ValueError, IndexError):
-            # Handle incorrect input format or missing values
+    
+    # Number of test cases
+    T = int(input.readline().strip())
+    
+    for case in range(1, T + 1):
+        # Read N and K
+        N, K = map(int, input.readline().strip().split())
+        
+        # Read the times for each traveler
+        times = [int(input.readline().strip()) for _ in range(N)]
+        
+        # Sort the times
+        times.sort()
+        
+        # Initialize variables
+        total_time = 0
+        left, right = 0, N - 1
+        
+        while left <= right:
+            # Fastest and slowest travelers
+            fastest = times[left]
+            slowest = times[right]
+            
+            # If there's only one traveler left, he crosses alone
+            if left == right:
+                total_time += fastest
+                break
+            
+            # Fastest crosses with slowest
+            total_time += slowest
+            # Slowest returns with flashlight
+            total_time += fastest
+            # Fastest crosses alone
+            total_time += fastest
+            
+            # Move pointers
+            left += 1
+            right -= 1
+        
+        # Check if the total time is within K
+        if total_time <= K:
+            results.append(f"Case #{case}: YES")
+        else:
             results.append(f"Case #{case}: NO")
+    
+    return "\n".join(results)
 
-    return '\n'.join(results)
+# Example usage:
+# input_data = """6
+# 3 1000000000
+# 1000000000
+# 1000000000
+# 1000000000
+# 4 17
+# 1
+# 2
+# 5
+# 10
+# 4 4
+# 1
+# 2
+# 5
+# 10
+# 2 22
+# 22
+# 22
+# 1 100
+# 12
+# 1 10
+# 12"""
+# print(solve(input_data))
 
 output = solve(input)
 Path('./full_out.txt').write_text(output)

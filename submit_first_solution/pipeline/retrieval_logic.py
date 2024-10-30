@@ -20,7 +20,7 @@ import torch
 from vllm import LLM, SamplingParams
 from sklearn.feature_extraction.text import TfidfVectorizer
 from tree_sitter_languages import get_language, get_parser
-
+from model import call_model, count_tokens
 
 from dataclasses import dataclass
 from pathlib import Path
@@ -37,9 +37,27 @@ from models import get_vllm, get_embedding_model
 language = get_language("python")
 tree_parser = get_parser("python")
 import multiprocessing
-
+from typing import List, Dict
+from collections import Counter
+import math
+import logging
 logging.basicConfig(format="%(asctime)s : %(levelname)s : %(message)s", level=logging.INFO)
 logger = logging.getLogger(__name__)
+
+def call_model(messages):
+    vllm_instance = get_vllm()
+    outputs = vllm_instance.generate(messages)
+    return outputs[0].outputs[0].text
+
+# def call_default_model(messages):
+#     vllm_instance = get_vllm('default')
+#     outputs = vllm_instance.generate(messages)
+#     return outputs[0].outputs[0].text
+
+# def call_code_model(messages):
+#     vllm_instance = get_vllm('code')
+#     outputs = vllm_instance.generate(messages)
+#     return outputs[0].outputs[0].text
 
 # Token mapping for AST nodes
 TOKEN_MAP = {
@@ -169,8 +187,54 @@ def preprocess_data(
     data_df.to_json(output_path, orient="records", lines=True)
     return data_df
 
+
+
+def self_reflection_on_problem(problem):
+    system_prompt = """
+    You are a world-class competitive programmer tasked with analyzing programming problems. Your role is to provide a clear, concise summary of the given problem's core requirements in bullet-point format. Follow these guidelines strictly:
+ 
+    1. Focus only on essential elements directly stated in the problem.
+    2. Provide only the information explicitly stated in the problem statement.
+    3. Do not infer, assume, or add any information not directly provided in the problem description.
+    4. Do not attempt to solve the problem or provide solution strategies.
+    5. Use the exact variable names, descriptions, units, and mathematical notation given in the problem.
+    6. Include all stated constraints, even if they seem obvious.
+    7. Provide only a high-level overview of what the problem asks, without adding any solution steps.
+    8. If any part of the problem is unclear or ambiguous, reflect this uncertainty in your analysis.
+    9. Ensure that all mathematical notations and symbols are accurately represented.
+    10. Pay special attention to units (like percentages) and include them in the variable descriptions.
+    11. Include any mathematical formulas or equations explicitly given in the problem statement as general rules, not specific to examples.
+    12. Clearly distinguish between the general problem description and any specific examples provided.
+ 
+    Present your analysis in a concise bullet-point format, covering the following aspects:
+    - Main task or objective
+    - Key variables and their descriptions
+    - Constraints
+    - Input format
+    - Output format
+    - General formulas (if any)
+    - Logic flow (high-level description of what needs to be done)
+    """
+ 
+    user_prompt = """
+    Analyze the following programming problem and provide a concise summary of its core requirements in bullet-point format:
+ 
+    {problem}
+ 
+    Remember to focus only on the essential elements explicitly stated in the problem. Do not infer or add any information not directly provided in the problem description. Be specific and use exact wording, notation, and units from the problem statement. Clearly distinguish between the general problem description and any specific examples provided.
+    """
+    messages = [
+        {"role": "system", "content": system_prompt},
+        {"role": "user", "content": user_prompt.format(problem=problem)}
+    ]
+ 
+    # Call the model to get the analysis
+    analysis = call_model(messages=messages)
+    print("analysis, loookkkkk", analysis)
+    return analysis
+
 class Retriever:
-    def __init__(self, path: str = "param-bharat/rag-hackercup"):
+    def __init__(self, path: str = "AlaaAhmed2444/rag_with_reflection"):
         ds = load_dataset(path, split="train")
         data_df = ds.to_pandas()
         self.docs = data_df.to_dict(orient="records")
@@ -183,57 +247,171 @@ class Retriever:
         retriever = bm25s.BM25(corpus=corpus)
         retriever.index(corpus_tokens)
         return retriever
-
-    @weave.op(name="retrieve_docs")
-    def retrieve(self, query: str, k: int = 10):
-        logger.info(f"Original query:\n{query}")
+    # def index(self):
+    #     corpus = self.corpus.tolist()
+    #     self.corpus_tokens = [
+    #         bm25s.tokenize([doc], stopwords=None)[0]
+    #         for doc in corpus
+    #     ]
+    #     return self
+    
+    # def get_score(self, query_tokens: List[str], doc_tokens: List[str]) -> float:
+    #     """
+    #     Calculate BM25 score between query and document tokens.
         
+    #     Args:
+    #         query_tokens: List of tokenized query terms
+    #         doc_tokens: List of tokenized document terms
+            
+    #     Returns:
+    #         float: BM25 similarity score
+    #     """
+    #     score = 0.0
+    #     doc_len = len(doc_tokens)
+        
+    #     # Parameters for BM25
+    #     k1 = 1.5
+    #     b = 0.75
+        
+    #     # Calculate document frequency for each term
+    #     doc_freqs = Counter(doc_tokens)
+        
+    #     # Calculate average document length if not already cached
+    #     if not hasattr(self, '_avg_doc_len'):
+    #         all_doc_lengths = [len(tokens) for tokens in self.corpus_tokens]
+    #         self._avg_doc_len = sum(all_doc_lengths) / len(all_doc_lengths) if all_doc_lengths else 0
+        
+    #     for term in query_tokens:
+    #         if term in doc_freqs:
+    #             # Term frequency in document
+    #             tf = doc_freqs[term]
+                
+    #             # Inverse document frequency
+    #             df = sum(1 for doc in self.corpus_tokens if term in doc)
+    #             idf = math.log((len(self.corpus_tokens) - df + 0.5) / (df + 0.5) + 1.0)
+                
+    #             # BM25 score calculation
+    #             numerator = tf * (k1 + 1)
+    #             denominator = tf + k1 * (1 - b + b * doc_len / self._avg_doc_len)
+    #             score += idf * numerator / denominator
+                
+    #     return score
+    
+    @weave.op(name="retrieve_and_rank")
+    def retrieve_and_rank(self, problem, query: str, top_k: int = 3) -> List[dict]:
+        logger.info(f"Starting retrieval and ranking process")
+        logger.info(f"Query preview: {query[:200]}...")
+        logger.info(f"Problem description preview: {problem.problem_description[:200]}...")
+        
+        # 1. Prepare query once
         clean_query = clean_code_string(query)
-        logger.info(f"Cleaned query:\n{clean_query}")
+        normalized_query = normalize_code(clean_query) or clean_query
+        full_query = problem.problem_description
         
-        normalized_query = normalize_code(clean_query)
-        logger.info(f"Normalized query:\n{normalized_query}")
+        # 2. Batch process all embeddings at once
+        logger.info(f"Processing embeddings for {len(self.docs)} documents...")
+        all_texts = [full_query] + [f"{doc['description']}" for doc in self.docs]
+        all_embeddings = get_embeddings(all_texts)
+        query_embedding = all_embeddings[0]
+        docs_embeddings = all_embeddings[1:]
         
-        if normalized_query is None:
-            logger.warning("Failed to normalize query. Using cleaned query.")
-            normalized_query = clean_query
-        
-        query_tokens = bm25s.tokenize([normalized_query], stopwords=None)
-        logger.info(f"Query tokens: {query_tokens}")
-        
-        try:
-            docs, _ = self.retriever.retrieve(query_tokens[0], k=k, corpus=self.docs)
-            return docs[0, :].tolist()
-        except Exception as e:
-            logger.error(f"Error in retrieval: {str(e)}")
-            return []
-        
-# model_name = "deepseek-ai/deepseek-coder-7b-instruct-v1.5"
-# tokenizer = AutoTokenizer.from_pretrained(model_name)
-# llm = LLM(model=model_name, dtype="float16", gpu_memory_utilization=0.95)
+        # 3. Batch process all analysis embeddings
+        logger.info("Processing analysis embeddings...")
+        query_analysis = self_reflection_on_problem(problem.problem_description)
+        all_analyses = [query_analysis] + [doc.get('self_reflection', '') for doc in self.docs]
+        all_analysis_embeddings = get_embeddings(all_analyses)
+        query_analysis_embedding = all_analysis_embeddings[0]
+        docs_analysis_embeddings = all_analysis_embeddings[1:]
 
-# def get_embeddings(texts, vectorizer=None):
-#     vllm = get_vllm()
-#     if isinstance(texts, str):
-#         texts = [texts]
+        
+        
+        # 4. Calculate all similarities at once using matrix operations
+        text_similarities = cosine_similarity([query_embedding], docs_embeddings)[0]
+        analysis_similarities = cosine_similarity([query_analysis_embedding], docs_analysis_embeddings)[0]
+        
+        # 5. Calculate BM25 scores efficiently
+        # logger.info("Calculating BM25 scores...")
+        # try:
+        #     # First tokenize the query
+        #     query_tokens = bm25s.tokenize([normalized_query], stopwords=None)[0]
+            
+        #     # Pre-process all document tokenizations
+        #     docs_tokens = [
+        #         bm25s.tokenize([doc['normalized_code']], stopwords=None)[0]
+        #         for doc in self.docs
+        #     ]
+            
+        #     # Calculate BM25 scores using pre-processed tokens
+        #     bm25_scores = np.array([
+        #         self.retriever.get_score(query_tokens, doc_tokens)
+        #         for doc_tokens in docs_tokens
+        #     ])
+            
+        #     logger.info(f"BM25 score range: [{bm25_scores.min():.3f}, {bm25_scores.max():.3f}]")
+        # except Exception as e:
+        #     logger.error(f"Error in BM25 calculation: {str(e)}")
+        #     bm25_scores = np.zeros(len(self.docs))
+        
+        # 6. Create results DataFrame
+        results_dict = {
+            'doc_idx': range(len(self.docs)),
+            'description': [doc['description'] for doc in self.docs],
+            'code': [doc['original_code'] for doc in self.docs],
+            'text_similarity': text_similarities,
+            'analysis_similarity': analysis_similarities,
+            # 'bm25_score': bm25_scores,
+            'sample_inputs': [doc['sample_inputs'] for doc in self.docs],
+            'sample_outputs': [doc['sample_outputs'] for doc in self.docs],
+            'answer_analysis':[doc['answer_analysis'] for doc in self.docs]
+        }
+        docs_df = pd.DataFrame(results_dict)
+        
+        # 7. Normalize scores using vectorized operations
+        # logger.info("Normalizing scores...")
+        # for score_col in ['text_similarity_raw', 'analysis_similarity_raw', 'bm25_score_raw']:
+        #     min_score = docs_df[score_col].min()
+        #     max_score = docs_df[score_col].max()
+        #     if max_score != min_score:
+        #         docs_df[score_col.replace('_raw', '')] = (docs_df[score_col] - min_score) / (max_score - min_score)
+        #     else:
+        #         docs_df[score_col.replace('_raw', '')] = np.zeros_like(docs_df[score_col])
+        #     logger.debug(f"{score_col} normalized range: [{docs_df[score_col.replace('_raw', '')].min():.3f}, "
+        #                 f"{docs_df[score_col.replace('_raw', '')].max():.3f}]")
+        
+        # 8. Calculate combined scores
+        docs_df['combined_score'] = (
+            0.3 * docs_df['text_similarity'] + 
+            0.8 * docs_df['analysis_similarity'] 
+        )
+            # 0.2 * docs_df['bm25_score']
+        
+        # 9. Get top results efficiently
+        top_docs = (docs_df
+            .sort_values('combined_score', ascending=False)
+            .head(top_k))
+        
+        # 10. Log final results
+        logger.info("\nFinal score ranges:")
+        for col in ['text_similarity', 'analysis_similarity', 'combined_score']:
+            logger.info(f"{col}: [{docs_df[col].min():.3f}, {docs_df[col].max():.3f}]")
+        
+        logger.info(f"\nTop {top_k} matches:")
+        for idx, row in top_docs.iterrows():
+            logger.info(
+                f"\nRank {idx + 1}:"
+                f"\nScores: "
+                # f"BM25={row['bm25_score']:.3f}, "
+                f"Text={row['text_similarity']:.3f}, "
+                f"Analysis={row['analysis_similarity']:.3f}, "
+                f"Combined={row['combined_score']:.3f}"
+                f"\nDescription preview: {row['description'][:200]}..."
+            )
     
-#     prompt_template = "Summarize the following code in one sentence: {}"
-#     prompts = [prompt_template.format(text) for text in texts]
-    
-#     sampling_params = SamplingParams(temperature=0.0, max_tokens=50)
-#     outputs = vllm.generate(prompts, sampling_params)
-    
-#     summaries = [output.outputs[0].text.strip() for output in outputs]
-    
-#     if vectorizer is None:
-#         vectorizer = TfidfVectorizer()
-#         embeddings = vectorizer.fit_transform(summaries)
-#     else:
-#         embeddings = vectorizer.transform(summaries)
-    
-#     return vectorizer, embeddings.toarray()
+        return top_docs.to_dict(orient='records')
 
-@weave.op(name="get_embeddings")
+
+
+
 def get_embeddings(texts):
     if isinstance(texts, str):
         texts = [texts]
@@ -244,46 +422,6 @@ def get_embeddings(texts):
     
     return embeddings.tolist()
 
-def rerank_docs(problem, query: str, retrieved_docs: List[dict], top_k: int = 3) -> List[dict]:
-    print(f"Number of retrieved docs: {len(retrieved_docs)}")
-    
-    # Get query embeddings
-    query_text = problem.problem_description + " " + query
-    query_embeddings = get_embeddings([query_text])
-    query_embeddings = np.array(query_embeddings)
-    print(f"Shape of query_embeddings: {query_embeddings.shape}")
-    
-    # Get document embeddings
-    docs_texts = [doc["description"] + " " + doc["original_code"] for doc in retrieved_docs]
-    docs_embeddings = get_embeddings(docs_texts)
-    docs_embeddings = np.array(docs_embeddings)
-    
-    print(f"Shape of docs_embeddings: {docs_embeddings.shape}")
-
-    similarities = cosine_similarity(query_embeddings, docs_embeddings)[0]
-    docs_df = pd.DataFrame(retrieved_docs)
-    docs_df["similarity"] = similarities
-    docs_df = docs_df.sort_values(by="similarity", ascending=False)
-    docs_df = docs_df.drop_duplicates(
-        subset=["description"],
-        keep="first",
-    )
-    return docs_df.head(top_k).to_dict(orient="records")
-
-    # if not retrieved_docs:
-    #     return []
-    
-    # vectorizer, docs_embeddings = get_embeddings([doc["cleaned_code"] for doc in retrieved_docs])
-    # _, query_embeddings = get_embeddings(query, vectorizer)
-
-    
-    # similarities = cosine_similarity(query_embeddings, docs_embeddings).flatten()
-    # docs_df = pd.DataFrame(retrieved_docs)
-    # docs_df["similarity"] = similarities
-    # docs_df = docs_df.sort_values(by="similarity", ascending=False)
-    # docs_df = docs_df.drop_duplicates(subset=["cleaned_code"], keep="first")
-    # return docs_df.head(top_k).to_dict(orient="records")
-
 
 def format_examples(examples: List[dict]) -> str:
     def format_exmaple(example: dict) -> str:
@@ -292,13 +430,16 @@ def format_examples(examples: List[dict]) -> str:
 <problem_statement>
 {example['description']}
 </problem_statement>
-<source_code>
-{example['original_code']}
-</source_code>
+<solution_logic>
+{example['answer_analysis']}
+</solution_logic>
+<solution_code>
+{example['code']}
+</solution_code>
 </problem>
 """
 
     messages = ""
-    for example in examples:
-        messages += f"\n<example>{format_exmaple(example)}</example>\n"
+    for idx, example in enumerate(examples):
+        messages += f"\n<example{idx+1}>{format_exmaple(example)}</example{idx+1}>\n"
     return messages.strip()

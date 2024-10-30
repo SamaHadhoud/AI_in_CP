@@ -52,7 +52,7 @@ G, create a list of detailed instructions to help you correctly solve this probl
 Be concise in your response; however, capture all of the essential information.
 """
     if examples:
-        reflection_system_prompt+="""
+        reflection_system_prompt+=f"""
 You have previously solved the following problems in this competition:
 <examples>
 {examples}
@@ -111,7 +111,7 @@ async def improve_solution(problem: Problem, analysis, previous_solution: Soluti
             Offending+=f"line {case[0]}, should be {case[1]} instead of {case[2]}\n"
         Offending+="</offending_test_cases>"
 #     improve_prompt = f"""
-# You have incorrectly answered the following programming problem. Based on the following reflection and improvements, please provide an improved solution to the problem:
+# You have incorrectly answered the folloexampleswing programming problem. Based on the following reflection and improvements, please provide an improved solution to the problem:
 
 # {problem}
 # <incorrect_solution>
