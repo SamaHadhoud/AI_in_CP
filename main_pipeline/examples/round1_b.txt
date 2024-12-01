@@ -1,0 +1,378 @@
+<example1>
+<problem_statement>
+Given a positive integer \(P\), please find an array of at most \(100\) positive integers which have a sum of \(41\) and a product of \(P\), or output \(-1\) if no such array exists.
+
+If multiple such arrays exist, **you may output any one of them**.
+
+# Constraints
+\(1 \leq T \leq 965\)
+\(1 \leq P \leq 10^9\)
+
+# Input Format
+
+Input begins with an integer \(T\), the number of test cases. For each case, there is one line containing a single integer \(P\).
+
+# Output Format
+
+For the \(i\)th test case, if there is no such array, print "`Case #i: -1`". Otherwise, print "`Case #i:` " followed by the integer \(N\), the size of your array, followed by the array itself as \(N\) more space-separated positive integers.
+
+# Sample Explanation
+In the first sample, we must find an array with product \(2023\), and sum \(41\). One possible answer is \([7, 17, 17]\).
+</problem_statement>
+<sample_test_cases>
+<sample_input>
+7
+2023
+114
+41
+175
+434
+666
+1872
+</sample_input>
+<sample_output>
+Case #1: 3 7 17 17
+Case #2: 2 3 38
+Case #3: 1 41
+Case #4: 3 1 5 35
+Case #5: 4 1 2 7 31
+Case #6: -1
+Case #7: 5 1 2 6 6 26
+</sample_output>
+</sample_test_cases>
+<solution_logic>
+Note that using a \(1\) in the output array will contribute to the sum without affecting the product. The problem reduces to finding any factorization \(P = f_1 * ... * f_k\) such that every \(f_i \ge 2\) and \(\sum f_i \le 41\). We can simply pad out the list with \(1\)s until we reach \(41\).
+
+Let's consider the prime factorization of \(P = p_1^{k_1} * p_2^{k_2}  ... p_M^{k_M}\). We claim that if an answer exists, it can always be attained by taking the prime factorization and padding out the rest with \(1\)s.
+
+To see why this is true, note that for any two integers \(a, b > 1\) it's always true that \(a*b \ge a+b\). Since composite factors can only be attained by merging prime factors, the overall sum can only stay the same or increase if we use composite factors. We might as well just use the prime factorization if it sums less than or equal to \(41\) (otherwise the answer does not exist), and then pad with \(1\)s.
+
+The prime factorization can be generated in \(\mathcal{O}(\sqrt P)\), and padding up to \(41\) takes constant time, so the overall running time is \(\mathcal{O}(\sqrt P)\).
+</solution_logic>
+<solution_code>
+def solve(input_data: str) -> str:
+    def get_factors(P):
+        factors = []
+        curr_sum = 0
+        i = 2
+        while i * i <= P:
+            if P % i == 0:
+                factors.append(i)
+                curr_sum += i
+                P //= i
+            else:
+                i += 1
+        if P > 1:
+            curr_sum += P
+            factors.append(P)
+        return factors, curr_sum
+
+    lines = input_data.strip().split('\n')
+    current_line = 0
+    T = int(lines[current_line])
+    current_line += 1
+    result = []
+    
+    for t in range(1, T+1):
+        P = int(lines[current_line])
+        current_line += 1
+        
+        factors, curr_sum = get_factors(P)
+        
+        if curr_sum > 41:
+            result.append(f"Case #{t}: -1")
+            continue
+            
+        while curr_sum < 41:
+            factors.append(1)
+            curr_sum += 1
+            
+        ans = [str(len(factors))] + [str(f) for f in factors]
+        result.append(f"Case #{t}: {' '.join(ans)}")
+        
+    return '\n'.join(result)
+</solution_code>
+</example1>
+<example2>
+<problem_statement>
+**Note: The only difference between this chapter and [chapter 2](https://www.facebook.com/codingcompetitions/hacker-cup/2022/round-1/problems/B2) is that here, coordinates are only up to \(\mathbf{3{,}000}\).**
+
+Boss Rob just planted \(N\) happy little trees in his yard, which can be represented on a Cartesian plane. The \(i\)th tree is located at coordinates \(t_i = (A_i, B_i)\). Now, he's looking for the best spot to build a well in order to provide water to them. He considers the *inconvenience* of a potential well location \(p\) to be the sum of the squared Euclidean distances to every tree:
+
+\[\sum_{i=1}^{N} \Vert \,p - t_i \Vert ^ 2 \]
+
+Rob wants to pick a location for his well, well... well. Help him determine the inconvenience for \(Q\) different potential well locations, \((X_1, Y_1), ..., (X_Q, Y_Q)\). To reduce output size, please print the sum of inconveniences for all potential well locations, modulo \(1{,}000{,}000{,}007\).
+
+
+# Constraints
+
+\(1 \le T \le 55\)
+\(1 \le N, Q \le 500{,}000\)
+\(0 \le A_i, B_i, X_i, Y_i \le \mathbf{3{,}000}\)
+All \((A_i, B_i)\) are distinct within a given test case.
+All \((X_i, Y_i)\) are distinct within a given test case.
+
+The total sum of \(N\) and \(Q\) across all test cases is at most \(3{,}000{,}000\).
+
+
+# Input Format
+
+Input begins with a single integer \(T\), the number of test cases. For each case, there is first a line containing a single integer \(N\). Then, \(N\) lines follow, the \(i\)th of which contains two space-separated integers \(A_i\) and \(B_i\). Then there is a line containing a single integer \(Q\). Then, \(Q\) lines follow, the \(i\)th of which contains two space-separated integers \(X_i\) and \(Y_i\).
+
+
+# Output Format
+
+For the \(i\)th test case, print a line containing `"Case #i: "`, followed by a single integer, the sum of inconveniences for all \(Q\) well locations, modulo \(1{,}000{,}000{,}007\).
+
+
+# Sample Explanation
+
+The first two sample cases are depicted below:
+
+<photo_description>
+Grid Representation: Each image shows a 7x7 Cartesian grid with trees and potential well locations marked.
+Left Image:
+    Trees are located at specific grid points.
+    Two potential well locations at (2, 5) and (6, 6) are shown.
+    The inconvenience for each well is calculated as the sum of squared Euclidean distances to the trees, resulting in a total inconvenience of 52.
+Right Image:
+    Displays a different configuration with three potential well locations at (3, 1), (5, 2), and (6, 5).
+    Each well's inconvenience is again calculated, with a total sum of 131.
+</photo_description>
+
+In the first case, the total inconvenience is \(18 + 34 = 52\):
+
+- For the well at \((2, 5)\), the inconvenience is the sum of the squared Euclidean distance to both trees, which is \(3^2 + 3^2 = 18\).
+- For the well at \((6, 6)\), the inconvenience is \(32 + 2 = 34\).
+
+In the second case, the total inconvenience is \(47 + 31 + 53 = 131\):
+
+- For the well at \((3, 1)\), the inconvenience is \(4 + 5 + 13 + 25 = 47\).
+- For the well at \((5, 2)\), the inconvenience is \(17 + 2 + 2 + 10 = 31\).
+- For the well at \((6, 5)\), the inconvenience is \(41 + 8 + 4 + 0 = 53\).
+</problem_statement>
+<sample_test_cases>
+<sample_input>
+3
+2
+2 2
+5 5
+2
+2 5
+6 6
+4
+1 1
+4 3
+6 3
+6 5
+3
+3 1
+5 2
+6 5
+8
+2837 745
+62 1162
+2634 1112
+1746 2618
+847 127
+986 1993
+732 1273
+2003 1998
+4
+1276 2231
+1234 1234
+287 2371
+3000 3000
+</sample_input>
+<sample_output>
+Case #1: 52
+Case #2: 131
+Case #3: 110090622
+</sample_output>
+</sample_test_cases>
+
+<solution_logic>
+The key insight is that the squared distance \(||p - t||^2 = (p_x - t_x)^2 + (p_y - t_y)^2\) between a well at point \(p\) and tree at point \(t\) can be obtained by treating each of the two axes independently.
+
+We can project the \(x\)-coordinates of trees \(t_1, \ldots, t_N\) onto a number line (the \(x\)-axis), and likewise for the \(y\)-coordinates onto the \(y\)-axis. There may multiple trees with a given \(x\) or \(y\), so we can precompute their frequencies in arrays \(\text{xcnt}[x]\) and \(\text{ycnt}[y]\). The time and space complexities will both be linear on the largest possible values of \(x\) and \(y\), which are only up to \(3{,}000\).
+
+Then, we see that the inconvenience of a well at point \(p\) can be computed as:
+
+\[\begin{aligned} \sum_{i=1}^{N} \lVert p - t_i \rVert^2 &= \sum_{i=1}^{N} [(p_x - A_i)^2 + (p_y - B_i)^2] \\ &= \sum_{i=1}^{N} (p_x - A_i)^2 + \sum_{i=1}^{N} (p_y - B_i)^2 \\ &= \sum_{x=0}^{3{,}000} \text{xcnt}[x]\cdot(p_x - x)^2 + \sum_{y=0}^{3{,}000} \text{ycnt}[y]\cdot (p_y - y)^2 \end{aligned}\]
+
+Computing this directly will take \(\mathcal{O}(3{,}000)\) steps on each of the \(Q = 500{,}000\) queries, for a total of ~\(1.5\) billion steps. This should already be fast enough to pass within the \(6\) minute time limit. However, we can optimize further by precomputing the answer for all \(3{,}000^2\) possible coordinates, after which, each query can be answered in \(\mathcal{O}(1)\).
+</solution_logic>
+<solution_code>
+def add(a: int, b: int, MOD: int) -> int:
+    return ((a % MOD) + (b % MOD)) % MOD
+
+def sub(a: int, b: int, MOD: int) -> int:
+    return (((a - b) % MOD) + MOD) % MOD
+
+def mul(a: int, b: int, MOD: int) -> int:
+    return (a % MOD) * (b % MOD) % MOD
+
+def solve(input_data: str) -> str:
+    MOD = 1000000007
+    
+    lines = input_data.strip().split('\n')
+    current_line = 0
+    T = int(lines[current_line])
+    current_line += 1
+    result = []
+    
+    for t in range(1, T+1):
+        N = int(lines[current_line])
+        current_line += 1
+        
+        sumA = sumB = sumAsq = sumBsq = 0
+        
+        for _ in range(N):
+            A, B = map(int, lines[current_line].split())
+            current_line += 1
+            
+            sumA = (sumA + A) % MOD
+            sumB = (sumB + B) % MOD
+            sumAsq = (sumAsq + (A * A % MOD)) % MOD
+            sumBsq = (sumBsq + (B * B % MOD)) % MOD
+            
+        Q = int(lines[current_line])
+        current_line += 1
+        
+        ans = 0
+        for _ in range(Q):
+            X, Y = map(int, lines[current_line].split())
+            current_line += 1
+            
+            # sum_{j} ((X - A_j)^2) = sum(X^2) - 2*X*sum(A_j) + sum(A_j^2)
+            term1 = add(sub(mul(mul(X, X, MOD), N, MOD), mul(2 * X, sumA, MOD), MOD), sumAsq, MOD)
+            term2 = add(sub(mul(mul(Y, Y, MOD), N, MOD), mul(2 * Y, sumB, MOD), MOD), sumBsq, MOD)
+            ans = add(ans, add(term1, term2, MOD), MOD)
+            
+        result.append(f"Case #{t}: {ans}")
+        
+    return '\n'.join(result)
+</solution_code>
+</example2>
+<example3>
+In the rapidly growing towns of Silicon Valley, traffic congestion is becoming a major problem. The governor has contracted Travis, the rock star traffic engineer, to come up with some solutions.
+
+A town consists of \(N\) horizontal streets and \(M\) vertical avenues, making up \(N*M\) intersections. Each intersection has some wait time, which is an integer number of seconds between \(1\) and \(1{,}000\), inclusive. The town's wait times can thus be represented as a grid with \(N\) rows and \(M\) columns of integers.
+
+A *route* within the grid consists of a sequence of one or more intersections, such that each pair of consecutive intersections are either horizontally or vertically adjacent to one another. The *duration* of a route is the sum of all of its intersections' wait times.
+
+Travis is tasked with assigning valid wait times for all \(N*M\) intersections. However, he must be careful in his choices. Routes too slow will lead to congestion, and routes too fast will lead to accidents. After careful calculations, Travis has determined that that an optimal grid must simultaneously satisfy the following two benchmark conditions based off the four corners of the town:
+
+1. The duration of the fastest route starting in the top-left intersection and ending in the bottom-right one is exactly \(A\) seconds, and
+2. the duration of the fastest route starting in the top-right intersection and ending in the bottom-left one is exactly \(B\) seconds.
+
+Please help Travis generate any such valid grid, or determine that no such grid exists.
+
+
+# Constraints
+
+\(1 \le T \le 40\)
+\(2 \le N, M \le 50\)
+\(1 \le A, B \le 1000\)
+
+The sum of \(N*M\) across all towns is at most \(40{,}000\).
+
+
+# Input
+
+Input begins with an integer \(T\), the number of towns that Travis is contracted for. For each town, there is a single line containing the \(4\) space-separated integers \(N\), \(M\), \(A\), and \(B\).
+
+
+# Output
+
+For the \(i\)th town, first print a line containing *"Case #i: "* followed by either the string "Possible" or "Impossible". If possible, this should be followed \(N\) rows of \(M\) space-separated integers each, comprising your chosen grid of intersection wait times in seconds.
+
+
+# Sample Explanation
+
+In the first town, the following is one possible grid for which the minimum durations of routes from the top-left to the bottom-right intersection, as well as from the top-right to the bottom-left intersection, are each equal to \(333 + 333 + 333 = 999\) seconds (as required):
+
+```
+  333 333
+  333 333
+```
+
+In the second town, the following is one possible grid satisfying the requirements:
+
+```
+  5 3 1
+  3 4 3
+```
+
+For example, the fastest route from the top-left to the bottom-right intersection involves moving right, then right, then down, for a total duration of \(5 + 3 + 1 + 3 = 12\) seconds. Meanwhile, the fastest route from the top-right to the bottom-left intersection has a duration of \(1 + 3 + 4 + 3 = 11\) seconds.
+
+**For each of the first \(3\) towns, other outputs would also be accepted.**
+</problem_statement>
+<sample_test_cases>
+<sample_input>
+4
+2 2 999 999
+2 3 12 11
+4 3 6 6
+50 50 1 1
+</sample_input>
+<sample_output>
+Case #1: Possible
+333 333
+333 333
+Case #2: Possible
+5 3 1
+3 4 3
+Case #3: Possible
+1 1 1
+1 2 1
+1 2 1
+1 1 1
+Case #4: Impossible
+</sample_output>
+</sample_test_cases>
+
+<solution_logic>
+Any path from one corner of the grid to the opposite corner must include at least \(K = N + M - 1\) cells and therefore have a minimum duration of \(K\). Therefore, if \(A < K\) or \(B < K\), no valid grid exists.
+
+Otherwise, consider a grid with a wait time of \(A - (N + M - 2)\) for the top-left cell, a wait time of \(B - (N + M - 2)\) for the top-right cell, and wait times of \(1\) for all remaining cells. In such a grid, the minimum duration of a path from the top-left to the bottom-right corner includes the top-left cell along with \(K - 1\) cells with wait times of \(1\), for a total of \(A - (N + M - 2) + (N + M - 2) = A\). The minimum duration of a path from the top-right to the bottom-left corner is similarly \(B\). Therefore, such a grid constitutes a valid output.
+</solution_logic>
+<solution_code>
+def solve(input_data: str) -> str:
+    lines = input_data.strip().split('\n')
+    current_line = 0
+    T = int(lines[current_line])
+    current_line += 1
+    result = []
+    
+    for t in range(1, T+1):
+        N, M, A, B = map(int, lines[current_line].split())
+        current_line += 1
+        
+        # Subtract minimum path length from A and B
+        A -= (N + M - 2)
+        B -= (N + M - 2) 
+        
+        if A < 1 or B < 1:
+            result.append(f"Case #{t}: Impossible")
+            continue
+            
+        # Build grid
+        grid = []
+        for i in range(N):
+            row = []
+            for j in range(M):
+                if i == 0 and j == 0:
+                    row.append(str(A))
+                elif i == 0 and j == M-1:
+                    row.append(str(B))
+                else:
+                    row.append('1')
+            grid.append(' '.join(row))
+            
+        result.append(f"Case #{t}: Possible")
+        result.extend(grid)
+        
+    return '\n'.join(result)
+</solution_code>
+</example3>

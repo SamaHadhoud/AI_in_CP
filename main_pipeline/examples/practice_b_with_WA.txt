@@ -1,0 +1,345 @@
+<examples>
+<example1>
+<problem_statement>
+You're playing a game against an opponent on a grid of cells with \(N\) rows and \(N\) columns. All of the cells are initially empty, and both players normally take turns placing symbols in empty cells (with one player placing **X**s and the other placing **O**s) until a row and/or column becomes entirely filled with one player's symbols (at which point the game ends with that player winning) or all of the cells have been filled without either player winning (in which case the game ends in a draw). Note that a player filling an entire diagonal with their symbols does *not* cause them to win.
+
+This particular game is in the process of being played, with you placing **X**s and your opponent placing **O**s. The current state of the cell in the \(i\)th row from the top and \(j\)th column from the left is one of the following:
+
+  - If \(C_{i,j}\) = `"."`, the cell is still empty
+  - If \(C_{i,j}\) = `"X"`, an **X** has been placed in the cell
+  - Otherwise, if \(C_{i,j}\) = `"O"`, an **O** has been placed in the cell
+  
+In the game's current state, both players have made an equal number of turns (in other words, the number of **X**s is the same as the number of **O**s), neither player has won yet, and the game has not yet ended in a draw (meaning that at least one cell is still empty).
+
+Your opponent has just turned their back, giving you the opportunity to immediately place as many additional **X**s on the board as you'd like, in any set of empty cells. Determine the minimum number of additional **X**s you must place such that placing them would cause you to immediately win (due to a row and/or a column becoming entirely filled with **X**s), if this is possible at all. If it is possible, you should also determine the number of different sets of cells in which that minimum number of **X**s could be placed. Two sets of cells are considered to be different if either of them includes at least one cell which the other doesn't.
+
+# Constraints
+
+\(1 \le T \le 70\)
+\(2 \le N \le 50\)
+\(C_{i,j} \in \{\)`.`, `X`, `O`\(\}\)
+
+The sum of \(N\) across all test cases is at most \(2{,}000\).
+
+# Input
+
+Input begins with an integer \(T\), the number of games you play against your opponent. For each game, there is first a line containing the integer \(N\). Then, \(N\) lines follow, the \(i\)th of which contains the \(N\) characters \(C_{i,1..N}\).
+
+# Output
+
+For the \(i\)th game, print a line containing "Case #i: " follow by "Impossible" if you cannot immediately win, or two integers if you can: the minimum number of additional **X**s you must place to do so, and the number of different sets of cells in which that minimum number of **X**s could be placed.
+
+
+# Sample Explanation
+
+In the first case, there's one way to place just \(1\) additional **X** and win. You can place it in the bottom-left corner (thus filling the entire left column):
+
+```
+  XO
+  X.
+```
+  
+In the second case, there are two possible ways to place \(1\) additional **X** and win:
+
+```
+  X.  XX
+  XO  .O
+```
+  
+In the third case, you'll need to place \(3\) **X**s to win, and you could choose any of the following \(6\) sets of cells to place them in:
+
+```
+  XXX  ...  ...  X..  .X.   ..X
+  ...  XXX  ...  X..  .X.   ..X
+  ...  ...  XXX  X..  .X.   ..X
+```
+  
+In the fourth case, you could place \(2\) additional **X**s to form either of the following \(2\) configurations:
+
+```
+  XOX  .OX
+  X..  XXX
+  X.O  ..O
+```
+  
+In the sixth case, even if you place **X**s in all \(3\) remaining empty cells, you cannot win.
+</problem_statement>
+<sample_test_cases>
+<sample_input>
+8
+2
+XO
+..
+2
+X.
+.O
+3
+...
+...
+...
+3
+.OX
+X..
+..O
+3
+OXO
+X.X
+OXO
+3
+.XO
+O.X
+XO.
+4
+X...
+.O.O
+.XX.
+O.XO
+5
+OX.OO
+X.XXX
+OXOOO
+OXOOO
+XXXX.
+</sample_input>
+<sample_output>
+Case #1: 1 1
+Case #2: 1 2
+Case #3: 3 6
+Case #4: 2 2
+Case #5: 1 1
+Case #6: Impossible
+Case #7: 2 2
+Case #8: 1 2
+</sample_output>
+</sample_test_cases>
+<wrong_solution>
+def solve(input_data: str) -> str:
+    lines = input_data.strip().split('\n')
+    T = int(lines[0])
+    current_line = 1
+    result = []
+    
+    for t in range(1, T+1):
+        N = int(lines[current_line])
+        grid = []
+        for i in range(N):
+            grid.append(list(lines[current_line + 1 + i]))
+        
+        # WRONG: Only counting empty spaces
+        min_moves = float('inf')
+        for i in range(N):
+            empty_count = grid[i].count('.')
+            if empty_count > 0:
+                min_moves = min(min_moves, empty_count)
+        
+        if min_moves == float('inf'):
+            result.append(f"Case #{t}: Impossible")
+        else:
+            result.append(f"Case #{t}: {min_moves} 1")  # Always assumes 1 possibility
+            
+        current_line += N + 1
+    
+    return '\n'.join(result)
+This solution is wrong because:
+
+Only checks rows, ignoring columns
+Doesn't check for 'O's in rows/columns
+Incorrectly counts number of possible winning positions
+Doesn't handle case when k=1 requires checking unique positions
+</wrong_solution>
+<correct_solution>
+<solution_logic>
+For any given row or column, if it has no **O**s and has \(k\) empty spaces, then you can win by placing \(k\) **X**s in it (filling in the empty spaces). This covers all possible optimal ways in which you might win, as you should never place additional **X**s which don't directly contribute to winning in a single row or column. The first part of the answer is therefore the minimum value of \(k\) across all such rows and columns, and it's impossible to win if there are none.
+
+If it's possible to win, then the second part of the answer is equal to the number of distinct sets of empty cells (in which **X**s will be placed) in those minimum-\(k\) rows/columns. If the minimum \(k\) is at least 2, this is simply equal to the number of such rows/columns, as no two of them can correspond to the same set of empty cells. On the other hand, if the minimum \(k\) is 1, then the second part of the answer may be smaller than that row/column count, as filling a row and filling a column might both involve placing an **X** in the same cell as one another. Therefore, for this case, we need to compute the set of distinct single empty cells found in all rows/columns which have \(k=1\), with the second part of the answer then being the size of that set.
+</solution_logic>
+<solution_code>
+def solve(input_data: str) -> str:
+    lines = input_data.strip().split('\n')
+    T = int(lines[0])
+    current_line = 1
+    result = []
+    
+    for t in range(1, T+1):
+        N = int(lines[current_line])
+        grid = []
+        for i in range(N):
+            grid.append(list(lines[current_line + 1 + i]))
+            
+        # Find minimum moves and count possibilities
+        min_moves = float('inf')
+        count = 0
+        single_move_positions = set()
+        
+        # Check rows
+        for i in range(N):
+            empty = []
+            valid = True
+            for j in range(N):
+                if grid[i][j] == 'O':
+                    valid = False
+                    break
+                if grid[i][j] == '.':
+                    empty.append((i,j))
+                    
+            if valid and empty:
+                moves = len(empty)
+                if moves < min_moves:
+                    min_moves = moves
+                    count = 0
+                if moves == 1:
+                    single_move_positions.add(empty[0])
+                elif moves == min_moves:
+                    count += 1
+                    
+        # Check columns
+        for j in range(N):
+            empty = []
+            valid = True
+            for i in range(N):
+                if grid[i][j] == 'O':
+                    valid = False
+                    break
+                if grid[i][j] == '.':
+                    empty.append((i,j))
+                    
+            if valid and empty:
+                moves = len(empty)
+                if moves < min_moves:
+                    min_moves = moves
+                    count = 0
+                if moves == 1:
+                    single_move_positions.add(empty[0])
+                elif moves == min_moves:
+                    count += 1
+                    
+        if min_moves == float('inf'):
+            result.append(f"Case #{t}: Impossible")
+        else:
+            positions = len(single_move_positions) if min_moves == 1 else count
+            result.append(f"Case #{t}: {min_moves} {positions}")
+            
+        current_line += N + 1
+        
+    return '\n'.join(result)
+</solution_code>
+</correct_solution>
+</example1>
+<example2>
+<problem_statement>
+*Nim Sum Dim Sum*, a bustling local dumpling restaurant, has two game theory-loving servers named, you guessed it, Alice and Bob. Its dining area can be represented as a two-dimensional grid of \(R\) rows (numbered \(1..R\) from top to bottom) by \(C\) columns (numbered \(1..C\) from left to right\).
+
+Currently, both of them are standing at coordinates \((1, 1)\) where there is a big cart of dim sum. Their job is to work together to push the cart to a customer at coordinates \((R, C)\). To make the job more interesting, they've turned it into a game.
+
+Alice and Bob will take turns pushing the cart. On Alice's turn, the cart must be moved between \(1\) and \(A\) units down. On Bob's turn, the cart must be moved between \(1\) and \(B\) units to the right. The cart may not be moved out of the grid. If the cart is already at row \(R\) on Alice's turn or column \(C\) on Bob's turn, then that person loses their turn.
+
+The "winner" is the person to ultimately move the cart to \((R, C)\) and thus get all the recognition from the customer. Alice pushes first. Does she have a guaranteed winning strategy?
+
+
+# Constraints
+
+\(1 \leq T \leq 500\)
+\(2 \leq R, C \leq 10^9\)
+\(1 \leq A < R\)
+\(1 \leq B < C\)
+
+
+# Input Format
+
+Input begins with an integer \(T\), the number of test cases. Each case will contain one line with four space-separated integers, \(R\), \(C\), \(A\), and \(B\).
+
+
+# Output Format
+
+For the \(i\)th test case, print `"Case #i: "` followed by `"YES"` if Alice has a guaranteed winning strategy, or `"NO"` otherwise.
+
+
+# Sample Explanation
+
+The first case is depicted below, with Alice's moves in red and Bob's in blue. Alice moves down, and Bob moves right to win immediately. There is no other valid sequence of moves, so Alice has no guaranteed winning strategy.
+
+The second case is depicted below. One possible guaranteed winning strategy is if Alice moves \(3\) units down, then Bob can only move \(1\) unit, and finally Alice can win with \(1\) unit.
+</problem_statement>
+<sample_test_cases>
+<sample_input>
+3
+2 2 1 1
+5 2 3 1
+4 4 3 3
+</sample_input>
+<sample_output>
+Case #1: NO
+Case #2: YES
+Case #3: NO
+</sample_output>
+</sample_test_cases>
+<wrong_solution>
+def solve(input_data: str) -> str:
+    lines = input_data.strip().split('\n')
+    T = int(lines[0])
+    result = []
+
+    for t in range(1, T+1):
+        R, C, A, B = map(int, lines[t].split())
+        
+        # WRONG: Only comparing A and B values
+        if A >= B:
+            result.append(f"Case #{t}: YES")
+        else:
+            result.append(f"Case #{t}: NO")
+
+    return '\n'.join(result)
+This solution is wrong because:
+
+Only compares movement ranges (A and B)
+Ignores grid dimensions (R and C)
+Doesn't consider optimal strategy of moving 1 unit at a time
+Fails to recognize that grid dimensions determine the winner
+</wrong_solution>
+<correct_solution>
+<solution_logic>
+If Alice reaches row \(R\) before Bob reaches row \(C\), then it's game over for Alice. Since each player now wants to get to the finish as slowly as possible, both have a simple dominating strategy of only moving \(1\) unit in their direction each turn, and \(R\) and \(C\) are the only things that matter.
+
+If \(R \le C\), Bob can always force Alice to reach row \(R\) first by moving \(1\) unit right at a time. Alice also only moves \(1\) unit at a time, because if she moves any faster, she'll just get stuck sooner. 
+
+Example: Alice moves first:
+```
+[ ][ ][ ][ ]
+[x][ ][ ][ ]
+[ ][ ][ ][ ]
+```
+
+Bob:
+```
+[ ][ ][ ][ ]
+[ ][x][ ][ ]
+[ ][ ][ ][ ]
+```
+
+Alice moves, and gets stuck to watch Bob stroll to the finish line:
+```
+[ ][ ][ ][ ]
+[ ][ ][ ][ ]
+[ ][x][ ][ ]
+```
+
+Conversely, if \(R > C\), then Alice can always force a win by moving \(1\) step at a time. Therefore we output "`YES`" if and only if \(R > C\), regardless of the values of \(A\) and \(B\).
+</solution_logic>
+<solution_code>
+def solve(input_data: str) -> str:
+    lines = input_data.strip().split('\n')
+    T = int(lines[0])
+    result = []
+
+    for t in range(1, T+1):
+        # Parse R, C, A, B values
+        R, C, A, B = map(int, lines[t].split())
+        
+        # Simple comparison - if rows > columns, it's possible
+        result.append(f"Case #{t}: {'YES' if R > C else 'NO'}")
+
+    return '\n'.join(result)
+</solution_code>
+</correct_solution>
+</example2>
+</examples>

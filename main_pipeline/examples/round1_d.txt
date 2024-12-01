@@ -1,0 +1,206 @@
+<example1>
+<problem_statement>
+*This could possibly be the best day ever!
+And the forecast says that tomorrow will likely be a billion and 6 times better.
+So make every minute count, jump up, jump in, and seize the day,
+And let's make sure that in every single possible way… today is gonna be a great day!*
+
+There's \(N\) days of summer vacation, and the \(i\)th day initially has greatness \(A_i\). However, the days just keep getting better! In particular, there will be \(Q\) changes, the \(i\)th of which changes the greatness of every day from \(L_i\) to \(R_i\) to be \(1\,000\,000\,006\) times what they were before!
+
+After each query, you'd like to know: which day's greatness modulo \(1\,000\,000\,007\) is the largest? If multiple days tie, we're interested in the earliest of them. For example, if there are \(N = 4\) days with greatnesses \([4, 1, 4, 2]\), then days \(1\) and \(3\) have the largest remainder, so our answer would be \(1\). To keep the output size small, please print only the sum of answers to all queries.
+
+**Constraints**
+
+\(1 \le T \le 45\)
+\(1 \le N \le 1{,}000{,}004\)
+\(1 \le A_i \le 1{,}000{,}000{,}006\)
+\(1 \le Q \le 500{,}000\)
+\(1 \le L_i \le R_i \le N\)
+
+The sum of \(N\) across all test cases is at most \(3{,}000{,}000\).
+
+**Input Format**
+
+Input begins with a single integer \(T\), the number of test cases. For each case, there is first a line containing a single integer \(N\). Then, there is a line containing \(N\) space-separated integers \(A_1, ..., A_N\). Then, there is a line containing a single integer \(Q\). \(Q\) lines follow, the \(i\)th of which contains two space-separated integers \(L_i\) and \(R_i\).
+
+**Output Format**
+
+For the \(i\)th test case, print a single line containing "`Case #i: `" followed by a single integer, the sum of the greatest day(s) after each of the \(Q\) queries.
+
+**Sample Explanation**
+
+In the first test case, there are \(N=3\) days with initial greatnesses of \([1, 20, 30]\). The first query modifies all \(3\) days, transforming their greatnesses \([1\,000\,000\,006, 999\,999\,987, 999\,999\,977]\), where the maximum is on day \(1\). After the second query, day \(3\) will have the largest greatness of \(999\,999\,977\). The overall answer is the sum of the greatest days, which is \(1 + 3 = 4\).
+</problem_statement>
+<sample_test_cases>
+<sample_input>
+2
+3
+1 20 30
+2
+1 3
+1 2
+2
+1 1
+1
+1 2
+</sample_input>
+<sample_output>
+Case #1: 4
+Case #2: 1
+</sample_output>
+</sample_test_cases>
+<solution_logic>
+The key insight is that for the operation of multiplying a number \(x\) by \(1{,}000{,}000{,}006\) modulo \(1{,}000{,}000{,}007\), doing it twice will just get us \(x\) back again. Therefore, the \(i\)th day will only ever take on two greatness values: \(A_i\) and \((A_i * 1{,}000{,}000{,}006) \text{ mod } 1{,}000{,}000{,}007\). We can consider an update of \(L_i..R_i\) to be "flipping" every value in the range to their complementary value.
+
+Let's build a [segment tree](https://en.wikipedia.org/wiki/Segment_tree) on the array. Each node is responsible for some subarray \(A_{l..r}\) and will maintain the following information:
+
+* the maximum greatnesses value in that range (i.e. the current greatnesses)
+* the day (index) of said maximum value
+* the maximum of the flipped greatnesses in that range (i.e. what the greatnesses will become after an update)
+* the day (index) of said flipped maximum
+
+When merging two child nodes to a parent, we set the max initial value in the parent node to be the max of the children's initial values, breaking ties by lowest day index. Likewise for the flipped max and index.
+
+Using the well-known lazy propagation technique, we can update ranges in time \(\mathcal{O}(\log N)\). For each node affected by an update, we can simply swap the first two fields with the last two. After each update, we can query the entire array (just access the root node) for the day of the current maximum greatness.
+
+Across \(Q\) queries, we get an overall running time of \(\mathcal{O}(Q \log N)\).
+</solution_logic>
+<solution_code>
+from typing import List, Iterator, TypeVar, Generic
+from dataclasses import dataclass
+import io
+
+T = TypeVar('T')
+D = TypeVar('D')
+
+MOD = 1_000_000_007
+
+@dataclass
+class Node:
+    maxval: int
+    maxflip: int 
+    idx_of_maxval: int
+    idx_of_maxflip: int
+    
+    def __init__(self, idx: int = 0, val: int = 0):
+        self.maxval = val
+        self.idx_of_maxval = idx
+        self.maxflip = (val * (MOD - 1)) % MOD
+        self.idx_of_maxflip = idx
+
+class SegmentTree(Generic[T, D]):
+    def __init__(self, arr: List[int]):
+        self.len = len(arr)
+        self.value = [Node() for _ in range(4 * self.len)]
+        self.delta = [False] * (4 * self.len)
+        self.pending = [False] * (4 * self.len)
+        self._build(0, 0, self.len-1, arr)
+        
+    def _join_values(self, a: Node, b: Node) -> Node:
+        res = Node()
+        if (a.maxval > b.maxval or 
+            (a.maxval == b.maxval and a.idx_of_maxval < b.idx_of_maxval)):
+            res.maxval = a.maxval
+            res.idx_of_maxval = a.idx_of_maxval
+        else:
+            res.maxval = b.maxval
+            res.idx_of_maxval = b.idx_of_maxval
+            
+        if (a.maxflip > b.maxflip or
+            (a.maxflip == b.maxflip and a.idx_of_maxflip < b.idx_of_maxflip)):
+            res.maxflip = a.maxflip
+            res.idx_of_maxflip = a.idx_of_maxflip
+        else:
+            res.maxflip = b.maxflip
+            res.idx_of_maxflip = b.idx_of_maxflip
+        return res
+
+    def _join_value_with_delta(self, v: Node, d: bool, length: int):
+        if d:  # Flip all values 
+            v.maxval, v.maxflip = v.maxflip, v.maxval
+            v.idx_of_maxval, v.idx_of_maxflip = v.idx_of_maxflip, v.idx_of_maxval
+
+    def _build(self, i: int, lo: int, hi: int, arr: List[int]):
+        if lo == hi:
+            self.value[i] = Node(lo, arr[lo])
+            return
+            
+        mid = (lo + hi) // 2
+        self._build(2*i + 1, lo, mid, arr)
+        self._build(2*i + 2, mid + 1, hi, arr)
+        self.value[i] = self._join_values(self.value[2*i + 1], self.value[2*i + 2])
+
+    def _push_delta(self, i: int, lo: int, hi: int):
+        if self.pending[i]:
+            self._join_value_with_delta(self.value[i], self.delta[i], hi - lo + 1)
+            if lo != hi:
+                l = 2*i + 1
+                r = 2*i + 2
+                self.delta[l] = self.delta[i] ^ self.delta[l] if self.pending[l] else self.delta[i]
+                self.delta[r] = self.delta[i] ^ self.delta[r] if self.pending[r] else self.delta[i]
+                self.pending[l] = self.pending[r] = True
+            self.pending[i] = False
+
+    def query(self, lo: int, hi: int) -> Node:
+        def _query(i: int, node_lo: int, node_hi: int, qlo: int, qhi: int) -> Node:
+            self._push_delta(i, node_lo, node_hi)
+            if node_lo == qlo and node_hi == qhi:
+                return self.value[i]
+                
+            mid = (node_lo + node_hi) // 2
+            if qlo <= mid and mid < qhi:
+                return self._join_values(
+                    _query(2*i + 1, node_lo, mid, qlo, min(qhi, mid)),
+                    _query(2*i + 2, mid + 1, node_hi, max(qlo, mid + 1), qhi))
+            if qlo <= mid:
+                return _query(2*i + 1, node_lo, mid, qlo, min(qhi, mid))
+            return _query(2*i + 2, mid + 1, node_hi, max(qlo, mid + 1), qhi)
+            
+        return _query(0, 0, self.len-1, lo, hi)
+
+    def update(self, lo: int, hi: int, d: bool):
+        def _update(i: int, node_lo: int, node_hi: int, upd_lo: int, upd_hi: int, d: bool):
+            self._push_delta(i, node_lo, node_hi)
+            if node_hi < upd_lo or node_lo > upd_hi:
+                return
+                
+            if upd_lo <= node_lo and node_hi <= upd_hi:
+                self.delta[i] = d
+                self.pending[i] = True
+                self._push_delta(i, node_lo, node_hi)
+                return
+                
+            mid = (node_lo + node_hi) // 2
+            _update(2*i + 1, node_lo, mid, upd_lo, upd_hi, d)
+            _update(2*i + 2, mid + 1, node_hi, upd_lo, upd_hi, d)
+            self.value[i] = self._join_values(self.value[2*i + 1], self.value[2*i + 2])
+            
+        _update(0, 0, self.len-1, lo, hi, d)
+
+def process_test_case(f) -> int:
+    N = int(f.readline())
+    A = list(map(int, f.readline().split()))
+    
+    tree = SegmentTree(A)
+    ans = 0
+    
+    Q = int(f.readline())
+    for _ in range(Q):
+        l, r = map(int, f.readline().split())
+        l -= 1
+        r -= 1
+        tree.update(l, r, True)
+        ans += tree.query(0, N-1).idx_of_maxval + 1
+        
+    return ans
+
+def solve(input_data: str) -> str:
+    f = io.StringIO(input_data)
+    T = int(f.readline())
+    result = []
+    for t in range(1, T+1):
+        ans = process_test_case(f)
+        result.append(f"Case #{t}: {ans}")
+    return "\n".join(result)
+</solution_code>
+</example1>

@@ -1,0 +1,188 @@
+<examples>
+<example1>
+<problem_statement>
+Problem solving skills are applicable to many daily musings. For instance, you might ponder over shared birthdays, bird houses, mapmaking, or ordering an exact number of chicken nuggets. Naturally, another great question to ponder is: how many deckers of a cheeseburger you could build if you spent your entire salary on fast food!
+
+Specifically, you're interested in building a \(K\)-decker cheeseburger, which alternates between buns, cheese, and patty starting and ending with a bun. **You've already bought \(S\) single cheeseburgers and \(D\) double cheeseburgers**. Each provides you with two buns, though a single provides one patty and one cheese, while a double provides two patties and two cheese.
+
+<photo_description>
+Cheeseburger Components:
+    Single Cheeseburger: Contains 2 buns, 1 patty, and 1 cheese slice.
+    Double Cheeseburger: Contains 2 buns, 2 patties, and 2 cheese slices.
+Decker Configurations:
+    1-Decker: Alternates between bun, patty, cheese, and ends with a bun.
+    2-Decker: Adds another layer of patty and cheese.
+    3-Decker: Continues the pattern for a taller burger.
+</photo_description>
+You'd like to know **whether you can build a \(K\)-decker cheeseburger** with the ingredients from \(S\) single and \(D\) double cheeseburgers.
+
+# Constraints
+\(1 \leq T \leq 40\)
+\(0 \leq S, D \leq 100\)
+\(1 \leq K \leq 100\)
+
+# Input Format
+
+Input begins with an integer \(T\), the number of test cases. Each case contains one line with three space-separated integers, \(S\) and \(D\) and \(K\).
+
+# Output Format
+
+For the \(i\)th test case, print "`Case #i:` " followed by "`YES`" if you have enough ingredients to build a \(K\)-decker cheeseburger, or "`NO`" otherwise.
+
+# Sample Explanation
+In the first case, you have one single and one double cheeseburger. In total, you have \(4\) buns, \(3\) slices of cheese, and \(3\) patties. This gives you exactly enough ingredients to build a \(3\)-decker cheeseburger.
+
+In the second case, you have \(4\) buns, but a \(4\)-decker cheeseburger would require \(5\), so you cannot build it.
+
+In the third case, you have plenty of ingredients to build a \(1\)-decker cheeseburger. You'll even have \(4\) single and \(5\) double cheeseburgers left over afterwards.
+</problem_statement>
+<sample_test_cases>
+<sample_input>
+7
+1 1 3
+0 2 4
+5 5 1
+0 1 1
+1 1 2
+97 1 99
+97 1 100
+</sample_input>
+<sample_output>
+Case #1: YES
+Case #2: NO
+Case #3: YES
+Case #4: YES
+Case #5: YES
+Case #6: YES
+Case #7: NO
+</sample_output>
+</sample_test_cases>
+<solution_logic>
+Each single provides \(2\) buns and \(1\) patty. Each double provides \(2\) buns and \(2\) patties. Given \(S\) singles and \(D\) doubles, we will have \(2*(S + D)\) buns and \(S + 2*D\) patties.
+
+A \(K\)-decker happens to require \(K+1\) buns and \(K\) patties. To know if we can build one, it suffices to check that both \(2*(S + D) \ge K + 1\) and \(S + 2*D \ge K\) hold true.
+</solution_logic>
+<solution_code>
+def solve(input_data: str) -> str:
+    lines = input_data.strip().split('\n')
+    T = int(lines[0])
+    result = []
+
+    for t in range(1, T+1):
+        S, D, K = map(int, lines[t].split())
+        
+        # Calculate total buns and patties
+        buns = 2 * (S + D)  # Each burger needs 2 buns
+        patties = S + 2*D   # Single has 1 patty, double has 2 patties
+        
+        # Check if we have enough buns and patties
+        if buns >= K + 1 and patties >= K:
+            result.append(f"Case #{t}: YES")
+        else:
+            result.append(f"Case #{t}: NO")
+
+    return '\n'.join(result)
+</solution_code>
+</example1>
+<example2>
+<problem_statement>
+Sandy's store has \(N\) pre-owned clock parts for sale, where the \(i\)th part is of style \(S_i\). The store also has two display cases, each capable of holding at most \(K\) parts. To maximize the aesthetics of Sandy's secondhand second hands, she'd like to put each of the \(N\) parts into one of the two cases so that neither case ends up with two different parts of the same style, and neither case has more than \(K\) parts total. Can you determine if this is possible?
+
+# Constraints
+
+\(1 \leq T \leq 90\)
+\(1 \leq N, K, S_i \leq 100\)
+
+
+# Input Format
+
+Input begins with an integer \(T\), the number of test cases. For each test case, there is first a line containing \(2\) space-separated integers, \(N\) and \(K\). Then, there is a line containing \(N\) space-separated integers, \(S_1, ..., S_N\).
+
+
+# Output Format
+
+For the \(i\)th test case, print "`Case #i:` " followed by "`YES`" if it's possible to arrange the \(N\) parts into two cases satisfying the description above, or "`NO`" otherwise.
+
+
+# Sample Explanation
+
+In the first test case, there are \(3\) parts of styles \(1\), \(2\), and \(2\), with the display cases having capacity \(2\). One solution, depicted below, is to put the first and third parts in one display case, and the second part in the other.
+<photo_description>
+Parts: Styles 1, 2, and 2.
+Solution: Place one part of style 1 and one part of style 2 in one case, and the remaining part of style 2 in the other case.
+</photo_description>
+In the second test case, there are \(5\) parts of styles \(1\), \(2\), \(3\), \(3\), \(1\), with the display cases having capacity \(3\). One solution, depicted below, is to put the first three parts in one display case, and the last two in the other.
+<photo_description>
+arts: Styles 1, 2, 3, 3, and 1.
+Solution: Place parts of styles 1, 2, and 3 in one case, and the remaining parts (3 and 1) in the other.
+</photo_description>
+In the third test case, there are \(5\) parts, but the display cases can each only hold \(2\). Therefore, there is no solution.
+
+In the fourth test case, style \(1\) will always be duplicated in some display case for any given arrangement. Therefore, there is no solution.
+</problem_statement>
+<sample_test_cases>
+<sample_input>
+5
+3 2
+1 2 2
+5 3
+1 2 3 3 1
+5 2
+1 2 3 4 5
+5 5
+1 1 2 2 1
+1 1
+1
+</sample_input>
+<sample_output>
+Case #1: YES
+Case #2: YES
+Case #3: NO
+Case #4: NO
+Case #5: YES
+</sample_output>
+</sample_test_cases>
+
+<solution_logic>
+If \(N > 2K\), then the answer is "`NO`", because we lack the capacity to hold all the parts.
+
+If there are \(3\) parts of the same style, then the answer is "`NO`". By the pigeonhole principle, any assignment of parts to cases will yield a case with two or more parts of the same style.
+
+Otherwise the answer is "`YES`" using the following strategy: First, for any style we have two parts of, put one in each case. Next, evenly distribute the remaining parts (each being a unique style in the store) between the two cases. Informally, this distributes the parts as close to evenly as possible, so we will have enough room in each case.
+
+Formally, one case will have \(\lfloor N/2 \rfloor \) parts and the other will have \(\lceil N/2 \rceil \) parts. Since \(N \le 2K\), we have \(N/2 \le K\), and thus \( \lceil N/2 \rceil  \le \lceil K \rceil = K\) (inequality preserved since \(\lceil x \rceil\) is a nondecreasing function). Having shown \(\lfloor N/2 \rfloor \le \lceil N/2 \rceil \le K\), we see that neither case will exceed capacity.
+</solution_logic>
+<solution_code>
+def solve(input_data: str) -> str:
+    lines = input_data.strip().split('\n')
+    T = int(lines[0]) 
+    current_line = 1
+    result = []
+
+    for t in range(1, T+1):
+        # Parse input
+        N, K = map(int, lines[current_line].split())
+        parts = list(map(int, lines[current_line + 1].split()))
+        
+        # Check if N > 2K
+        if N > 2*K:
+            result.append(f"Case #{t}: NO")
+            current_line += 2
+            continue
+        
+        # Count frequencies of each part style
+        freq = {}
+        impossible = False
+        for part in parts:
+            freq[part] = freq.get(part, 0) + 1
+            if freq[part] >= 3:
+                impossible = True
+                break
+                
+        result.append(f"Case #{t}: {'NO' if impossible else 'YES'}")
+        current_line += 2
+
+    return '\n'.join(result)
+</solution_code>
+</example2>
+</examples>
