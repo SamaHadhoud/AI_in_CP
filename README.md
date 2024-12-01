@@ -46,3 +46,6 @@ The script allows customization through the `Args` dataclass, enabling you to ta
 | `retrive_flag`               | Use retrieval-augmented generation for additional problem context.                             | `False`                |
 | `choose_best_flag`           | Enable multi-solution generation and ranking to select the best solution.                      | `False`                |
 | `weave_log`                  | Enable logging in Weave for visualization and analysis.                                        | `True`                 |
+
+## Acknowledgement
+Our implementation is based on the [starter kit](https://github.com/HackerCupAI/starter-kits) offered by HackerCup AI 2024.
