@@ -25,25 +25,19 @@ import asyncio
 @dataclass
 class Args(simple_parsing.Serializable):
     problem_names: List[str] = field(default_factory=lambda:  [
-
-        # "Prime Subtractorization", 
-        # "Subsonic Subway", "Substantial Losses", "Substitution Cipher", "Wildcard Submissions"])
-        # "Cottontail Climb (Part 1)", "Cottontail Climb (Part 2)"])
-        "Walk the Line"
-        , 
+        #practice 2024
+        "Walk the Line", 
         "Line by Line",
         "Fall in Line", 
         "Line of Delivery (Part 1)", "Line of Delivery (Part 2)"
+        #round1 2024
+        # "Prime Subtractorization", 
+        # "Subsonic Subway"
+        # "Substantial Losses", 
+        # "Substitution Cipher", 
+        # "Wildcard Submissions"     
         ])
         
-        # "cheeseburger_corollary_ch1", 
-        # "cheeseburger_corollary_ch2", "dim_sum_delivery", "two_apples_a_day", "road_to_nutella"])
-        # # "here_comes_santa_claus", 
-        # "sum_41_ch1",
-        # "sum_41_ch2", 
-        
-        # "back_in_black_ch1", "back_in_black_ch2", "today_is_gonna_be_a_great_day", "bohemian_rap-sody"] ) # list of problems to solve
-    # folder_path: Path = Path("./dataset/2023/practice/")
     problem_letters: List[str] = field(default_factory=lambda:  ["a", "b", "c", "d", "d"])
     problem_round: str= "practice"
     folder_path: Path = Path("./2024-practice")
@@ -54,6 +48,7 @@ class Args(simple_parsing.Serializable):
     timeout: int = 30
     max_attempts: int = 20
     retrive_flag: bool = False
+    few_shot_cot_examples_flag: bool = True
     choose_best_flag: bool = False
     heurstic_compare:bool = True
     cache_directory: Path = Path("data/cache")
@@ -66,8 +61,10 @@ async def get_few_shot_cot_examples(problem_letter, problem_round):
 @weave.op()
 async def solve_single_problem(args: Args, problem_name: str, problem_letter, retriever):
     """Solve a single problem and log results in Weave."""
-    examples = await get_few_shot_cot_examples(problem_letter, args.problem_round)
-    # examples = ""
+    examples = ""
+    if(args.few_shot_cot_examples_flag):
+        examples = await get_few_shot_cot_examples(problem_letter, args.problem_round)
+    
 
     problem = Problem.from_name(problem_name, args.folder_path)
     logging.info(f"Solving problem: {problem_name}")
@@ -278,25 +275,20 @@ async def main(args: Args):
     x = "choose_best-" if args.choose_best_flag else ""
     if args.choose_best_flag and args.heurstic_compare:
         x+="heurstic_compare-"
+    if args.few_shot_cot_examples_flag:
+        x+="few_shot_cit_examples"
     if args.weave_log:
-        weave.init(f"examples-with-analysis-hack-cup-{x}{model_name.replace('/', '-')}")
-
-    # retriever = Retriever("AlaaAhmed2444/rag_full")
-    
+        weave.init(f"with-analysis-hack-cup-{x}{model_name.replace('/', '-')}")
 
     retriever = None
+    if(args.retrive_flag):
+        retriever = Retriever("AlaaAhmed2444/rag_full")
+    
 
     all_results = {}
     for idx, problem_name in enumerate(args.problem_names):
         problem_results = await solve_single_problem(args, problem_name, args.problem_letters[idx], retriever)
         all_results[problem_name] = problem_results
-        
-        # logging.info(f"Results for {problem_name}:")
-        # logging.info(f"Initial solution status: {problem_results['initial_solution'].status}")
-        # logging.info(f"Initial full input result: {problem_results['initial_full_input_result']}")
-        # logging.info(f"Best solution status: {problem_results['best_solution'].status}")
-        # logging.info(f"Best full input result: {problem_results['best_full_input_result']}")
-        # logging.info("---")
 
     weave.save(all_results, "all_problems_results")
 

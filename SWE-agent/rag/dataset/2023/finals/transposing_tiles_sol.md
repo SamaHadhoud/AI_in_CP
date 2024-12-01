@@ -1,5 +1,0 @@
-Consider all possible initial moves (of swapping one pair of adjacent tiles) and the corresponding score achieved. Note that to calculate the score of \(1\) swap, it is enough to consider the submatrix of size \(7\) x \(7\) centered at one of the tiles being swapped.
-
-One candidate for the answer is a pair of \(1\)-swaps as long as these swaps are not close to each other (otherwise they might interfere). We also need to consider swaps that are close to each other. For that, consider some tile \(A\) to be swapped with an adjacent one, and another tile \(B\) also to be swapped with another adjacent one. It's enough to consider all tiles \(B\) that are in either the same column or same row as \(A\), and with a Manhattan distance of at most \(2\) from \(A\).
-
-For each tile chosen to be swapped, there are at most \(4\) tiles adjacent to it. With that, the overall time complexity is \(\mathcal{O}(R*C*(K + \log(R*C)))\), where \(K\) is a constant denoting the number \(2\)-swaps that can be made close to each other as well as checking the score for them. \(K\) is approximately \(7*7*8*4*4 = 6272\).

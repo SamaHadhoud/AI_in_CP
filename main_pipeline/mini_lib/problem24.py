@@ -125,7 +125,6 @@ class Problem:
             sample_input=sample_input_path.read_text(),
             sample_output=sample_output_path.read_text(),
             input_path=input_path,
-            output_path=input_path,
             output_path = output_path,
             folder_path=input_path.parent,
         )
